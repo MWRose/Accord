@@ -1,34 +1,49 @@
 import sys
 import socket
-from os import _exit as quit
+import threading
 
+# Argument: IP address, port number
+# Can run this multiple times for multiple different users
+class Client:
+    def __init__(self):
+        self.create_connection()
 
-def main():
-    # parse arguments
-    if len(sys.argv) != 3:
-        print("usage: python3 %s <host> <port>" % sys.argv[0]);
-        quit(1)
-    host = sys.argv[1]
-    port = sys.argv[2]
+    def create_connection(self):
+        self.s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        
+        
+        try:
+            # Get command line arguments and check correctness
+            args = sys.argv
+            if len(args != 2):
+                print("correct usage: python3 Server.py <server name> <port>")
+            server_name = args[1]
+            server_port = int(args[2])
 
-    # open a socket
-    clientfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # server_name = input("Enter host server's IP address: ")
+            # server_port = int(input("Enter host server port number: "))
 
-    # connect to server
-    clientfd.connect((host, int(port)))
+            self.s.connect((server_name, server_port))
+            
+        except:
+            print("Couldn't connect to server, please type in valid host name and port.")
 
-    # message loop
-    while(True):
-        msg = input("Enter message for server: ")
-        clientfd.send(msg.encode())
+        self.username = input("Enter username: ")
+        self.s.send(self.username.encode())
+        
+        # Handles threading of sending and receiving messages for a client
+        send_handler = threading.Thread(target=self.handle_send, args=())
+        send_handler.start()
 
-#        # You don't need to receive for this assignment, but if you wanted to
-#        # you would use something like this
-#        msg = clientfd.recv(1024).decode()
-#        print("Received from server: %s" % msg)
+        receive_handler = threading.Thread(target=self.handle_receive,args=())
+        receive_handler.start()
 
-    # close connection
-    clientfd.close()
+    def handle_send(self):
+        while True:
+            print(self.s.recv(1204).decode())
 
-if __name__ == "__main__":
-    main()
+    def handle_receive(self):
+        while True:
+            self.s.send((self.username+' - '+input()).encode())
+
+client = Client()
