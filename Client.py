@@ -24,7 +24,7 @@ class Client:
             # server_port = int(input("Enter host server port number: "))
 
             self.s.connect((server_name, server_port))
-            
+
         except:
             print("Couldn't connect to server, please type in valid host name and port.")
 
@@ -45,5 +45,9 @@ class Client:
     def handle_receive(self):
         while True:
             self.s.send((self.username+' - '+input()).encode())
+
+
+    def handshake(self):
+        
 
 client = Client()
