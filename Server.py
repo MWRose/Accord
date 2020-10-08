@@ -1,10 +1,15 @@
 import sys
 import socket
 import threading
+from pyfiglet import Figlet
 
 # Argument: port number
 class Server:
     def __init__(self):
+        # Print Accord server side messages
+        f = Figlet(font="smslant")
+        print (f.renderText("Welcome to ACCORD (server side)"))
+
         self.start_server()
 
     def start_server(self):
@@ -14,11 +19,9 @@ class Server:
 
         # Get command line arguments and check correctness
         args = sys.argv
-        if len(args != 2):
+        if len(args) != 2:
             print("correct usage: python3 Server.py <port>")
         server_port = int(args[1])
-
-        # server_port = int(input("Enter what port number to run the host server on: "))
 
         self.clients = []
 
@@ -34,11 +37,16 @@ class Server:
             c, addr = self.s.accept()
 
             username = c.recv(1024).decode()
+
+            # client: server IP address, port number. Debug purposes. 
+            # TODO: remove
+            print(addr)
             
             print("New connection. Username: " + str(username))
             self.broadcast(username + " has entered the chat.")
 
-            self.curr_users[c] = username
+            self.curr_users[username] = addr
+            print(self.curr_users)
 
             self.clients.append(c)
              
@@ -62,9 +70,20 @@ class Server:
                 break
 
             if msg.decode() != "":
+                self.handle_recipient(msg)
                 print("New message: " + str(msg.decode()))
-                for connection in self.clients:
-                    if connection != c:
-                        connection.send(msg)
+
+    def handle_recipient(self, msg):
+        self.client_index = -1
+        message = str(msg.decode())
+
+        if (message in self.curr_users): 
+            self.client_index = list(self.curr_users.keys()).index(message)
+            # find a way to specify what user instead of "Someone"
+            self.clients[self.client_index].send(("Someone has started chatting with you.").encode())
+        elif self.client_index == -1:
+            self.broadcast(message)
+        else:
+            self.clients[self.client_index].send(message)
 
 server = Server()
