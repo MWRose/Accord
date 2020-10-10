@@ -2,6 +2,7 @@ import sys
 import socket
 import threading
 from pyfiglet import Figlet
+import Requests
 
 # Argument: port number
 class Server:
@@ -36,30 +37,30 @@ class Server:
         while True:
             c, addr = self.s.accept()
 
-            username = c.recv(1024).decode()
+            data = c.recv(1024)
+            request = Requests.parse_request(data)
 
-            # client: server IP address, port number. Debug purposes. 
-            # TODO: remove
-            print(addr)
-            
-            print("New connection. Username: " + str(username))
-            self.broadcast(username + " has entered the chat.")
+            if request.is_login():
+                username = request.data["username"]
+                print("New connection. Username: " + str(username))
+                
+                self.broadcast(username + " has entered the chat.")
 
-            self.curr_users[username] = addr
-            print(self.curr_users)
+                self.curr_users[username] = addr
+                print(self.curr_users)
 
-            self.clients.append(c)
-             
-            threading.Thread(target=self.handle_client,args=(c,addr,)).start()
+                self.clients.append(c)
+                
+                threading.Thread(target=self.handle_client,args=(c,addr,)).start()
 
     def broadcast(self, msg):
         for connection in self.clients:
-            connection.send(msg.encode())
+            connection.send(Requests.broadcast(msg))
 
     def handle_client(self,c,addr):
         while True:
             try:
-                msg = c.recv(1024)
+                data = c.recv(1024)
             except:
                 c.shutdown(socket.SHUT_RDWR)
                 self.clients.remove(c)
@@ -69,21 +70,24 @@ class Server:
 
                 break
 
-            if msg.decode() != "":
-                self.handle_recipient(msg)
-                print("New message: " + str(msg.decode()))
+            if data.decode() != "":
+                self.handle_recipient(data)
+                print("New message: " + str(data.decode()))
 
-    def handle_recipient(self, msg):
+    def handle_recipient(self, data):
         self.client_index = -1
-        message = str(msg.decode())
-
-        if (message in self.curr_users): 
-            self.client_index = list(self.curr_users.keys()).index(message)
-            # find a way to specify what user instead of "Someone"
-            self.clients[self.client_index].send(("Someone has started chatting with you.").encode())
-        elif self.client_index == -1:
-            self.broadcast(message)
-        else:
-            self.clients[self.client_index].send(message)
+        request = Requests.parse_request(data)
+        if request.is_initiate_chat():
+            requester = request.data["requester"]
+            recipient = request.data["recipient"]
+            if recipient in self.curr_users: 
+                self.client_index = list(self.curr_users.keys()).index(recipient)
+                self.clients[self.client_index].send(Requests.broadcast(requester + " has started chatting with you."))
+        elif request.is_message():
+            if self.client_index == -1:
+                print(data)
+                self.broadcast(request.data["message"])
+            else:
+                self.clients[self.client_index].send(data)
 
 server = Server()
