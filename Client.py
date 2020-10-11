@@ -21,12 +21,15 @@ class Client:
             args = sys.argv
             if len(args) != 3:
                 print("correct usage: python3 Server.py <server name> <port>")
+                # TODO: Maybe make this quit?
+
             server_name = args[1]
             server_port = int(args[2])
 
             self.s.connect((server_name, server_port))
         except:
             print("Couldn't connect to server, please type in valid host name and port.")
+            # TODO: Maybe make this quit?
 
         self.username = input("Enter username: ")
         self.s.send(self.username.encode())
