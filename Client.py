@@ -2,6 +2,10 @@ import sys
 import socket
 import threading
 from pyfiglet import Figlet
+import Crypto_Functions
+import Requests
+import base64
+import Gen
 
 # Argument: IP address, port number
 # Can run this multiple times for multiple different users
@@ -12,6 +16,14 @@ class Client:
         print (f.renderText("Welcome to ACCORD"))
         print ("Chat away!")
 
+
+        self.recipient = ""
+        self.private_key = ""
+        self.public_keys = {}
+        self.contacts = {}
+        self.username = input("Enter username: ")
+        self.populate_private_key()
+
         self.create_connection()
 
     def create_connection(self):
@@ -21,7 +33,7 @@ class Client:
             args = sys.argv
             if len(args) != 3:
                 print("correct usage: python3 Server.py <server name> <port>")
-                # TODO: Maybe make this quit?
+                sys.exit(0)
 
             server_name = args[1]
             server_port = int(args[2])
@@ -29,12 +41,15 @@ class Client:
             self.s.connect((server_name, server_port))
         except:
             print("Couldn't connect to server, please type in valid host name and port.")
-            # TODO: Maybe make this quit?
+            sys.exit(0)
 
-        self.username = input("Enter username: ")
-        self.s.send(self.username.encode())
+        
 
-        self.recipient_established = False
+        # TODO Establish public and private keys
+        Gen.generate_key_pair(self.username)
+        
+
+        self.s.send(Requests.login(self.username))
         
         # Handles threading of sending and receiving messages for a client
         send_handler = threading.Thread(target=self.handle_send, args=())
@@ -45,17 +60,103 @@ class Client:
 
     def handle_send(self):
         while True:
-            if (self.recipient_established == False): 
-                # If user inputs a correct username, will start chat with them
-                # TODO: Better user logic here
-                msg = input("Who would you like to start chatting with? ")
-                self.s.send(msg.encode())
-                self.recipient_established = True
+            self.recipient = input("Recipient: ")
+            self.populate_public_keys(self.recipient)
+            # Check if chat has already been initiated with this recipient
+            if (self.recipient not in self.contacts):
+                self.send_handshake()
             else:
-                self.s.send((self.username + " - "+ input("Message: ")).encode())   
+                msg = input("Message: ")
+                self.s.send(Requests.message(self.username, self.recipient, msg)) 
 
     def handle_receive(self):
         while True:
-            print(self.s.recv(1204).decode())      
+            data = self.s.recv(2048)
+            request = Requests.parse_request(data)
+
+            # Handle different message types
+            if request.is_message():
+                print(request.data["sender"] + ": " + request.data["message"]) 
+            elif request.is_broadcast():
+                print(request.data["message"]) 
+            elif request.is_initiate_chat():
+                recieve_handshake(request.data)
+
+    def send_handshake(self):
+
+        # Message contents
+        username = self.username
+        recipient = self.recipient
+        aes_key = Crypto_Functions.generate_session_key()
+
+        # RSA encrypt the key
+        # sender, recipient, encrypted(sender, recipient, aes_key), signed(encrpyted(---))
+        aes_key_b64 = base64.b64encode(aes_key)
+        encrypt_msg = username + "," + recipient + "," + str(aes_key_b64)
+        encrypted = Crypto_Functions.rsa_encrypt(encrypt_msg, self.public_keys[recipient])
+        encrypted_b64 = base64.b64encode(encrypted)
+
+        # Create a signature for the message contents
+        signature = username + recipient + str(encrypted_b64)
+        print(self.private_key)
+        signed = Crypto_Functions.rsa_sign(signature, self.private_key)
+        signed_b64 = base64.b64encode(signed)
+
+        request = Requests.initiate_chat(self.username, self.recipient, encrypted_b64, signed_b64)
+        self.s.send(request)
+        self.contacts[recipient] = aes_key
+
+
+    def receive_handshake(self, data):
+        recipient = data["recipient"]
+        if recipient == self.username:
+            # Parsed message contents
+            requester = data["requester"]
+            encrypted_b64 = data["encrypted"]
+            signed_b64 = data["signed"]
+
+            encrypted = base64.b64decode(encrypted_b64.encode()[2:-1])
+            signed = base64.b64decode(signed_b64.encode()[2:-1])
+            
+            # Check if we have the requesters public_key, and if not get it
+            if requester not in self.public_keys:
+                populate_public_keys(requester)
+
+            # Check the signature
+            signature_contents = requester + recipient + str(encrypted_b64)
+            if not Crypto_Functions.rsa_check_sign(signature_contents, signed, self.public_keys[requester]):
+                print("Invalid signature")
+            else:
+                # Parse encrpyted message
+                decrypted_msg = Crypto_Functions.rsa_decrypt(encrypted, self.private_key)
+                decrypted_msg_split = decrypted_msg.split(",", 2)
+
+                # Check the contents of the sender and re
+                enc_sender = decrypted_msg_split[0]
+                enc_recipient = decrypted_msg_split[1]
+                # TODO: Check that these are the same
+
+                aes_key_b64 = decrypted_msg_split[2].encode()[2:1]
+                aes_key = base64.b64decode(aes_key_b64)
+                contacts[requester] = aes_key
+        else:
+            print("User doesn't match intended recipient")
+    
+        
+    def populate_public_keys(self, user_name: str):
+        with open('public_{}.pem'.format(user_name), 'rb') as public:
+            self.public_keys[user_name] = public.read() # This is still a string
+
+    def populate_private_key(self):
+        print('private_{}.pem'.format(self.username))
+        f =  open('private_{}.pem'.format(self.username), 'rb')
+        self.private_key = f.read()
+        f.close()
+            
+        
+        
+        
+        
+    
 
 client = Client()
