@@ -18,7 +18,7 @@ def aes_encrypt(msg_str: str, aes_key: bytes) -> Tuple[bytes, bytes]:
     """
 
     msg = msg_str.encode()
-    cipher = AES.new(aes_key, AES.MODE_CBC, iv=iv)
+    cipher = AES.new(aes_key, AES.MODE_CBC)
     enc_msg = cipher.encrypt(pad(msg, AES.block_size))
     iv = cipher.iv
     
@@ -67,7 +67,8 @@ def rsa_sign(msg: bytes, private_key: bytes) -> bytes:
     """
 
     key = RSA.import_key(private_key)
-    h = SHA256.new(msg)
+    h = SHA256.new()
+    h.update(msg)
     return pkcs1_15.new(key).sign(h)
 
 
@@ -78,13 +79,16 @@ def rsa_check_sign(msg: bytes, signature: bytes, public_key: bytes) -> bool:
 
     valid = False
     key = RSA.import_key(public_key)
-    h = SHA256.new(msg)
+    h = SHA256.new()
+    h.update(msg)
 
     try:
         pkcs1_15.new(key).verify(h, signature)
+        print("valid")
         valid = True
     except (ValueError, TypeError):
         valid = False
+        print("not valid")
 
     return valid
     

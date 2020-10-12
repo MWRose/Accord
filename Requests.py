@@ -14,7 +14,7 @@ class Request:
         return "kind" in self.data
 
     def is_message(self) -> bool:
-        return self.is_valid() and self.data["kind"] == REQUEST_KIND_MESSAGE and "sender" in self.data and "recipient" in self.data and "message" in self.data
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_MESSAGE and "sender" in self.data and "recipient" in self.data and "message" in self.data and "iv" in self.data
 
     def is_login(self) -> bool:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_LOGIN and "username" in self.data
@@ -34,8 +34,8 @@ def create_request(kind: str, values: List[Tuple[str, str]]) -> bytes:
     json_data = json.dumps(data, sort_keys=False, indent=2)
     return json_data.encode()
 
-def message(sender: str, recipient: str, msg: str) -> bytes:
-    values = [("sender", sender), ("recipient", recipient), ("message", msg), ("key",key)]
+def message(sender: str, recipient: str, msg: str, iv: str) -> bytes:
+    values = [("sender", sender), ("recipient", recipient), ("message", msg), ("iv", iv)]
     return create_request(REQUEST_KIND_MESSAGE, values)
 
 def login(username: str) -> bytes:

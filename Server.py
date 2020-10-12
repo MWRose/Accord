@@ -99,7 +99,7 @@ class Server:
             # Initiate new chat between 2 connections
             if recipient in self.curr_users: 
                 self.client_index = list(self.curr_users.keys()).index(recipient)
-                self.clients[self.client_index].send(Requests.message(requester, recipient, requester + " has started chatting with you."))
+                self.clients[self.client_index].send(data)
         # Existing chat
         elif request.is_message():
             # No recipient specified in message
