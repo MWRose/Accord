@@ -94,7 +94,7 @@ def rsa_check_sign(msg: bytes, signature: bytes, public_key: bytes) -> bool:
     return valid
 
 
-def hash_key(key: bytes) -> Tuple[bytes, bytes]:
+def hash_keys(key: bytes) -> Tuple[bytes, bytes]:
     """
     Takes a key and return two hashes of it
     """
@@ -103,10 +103,13 @@ def hash_key(key: bytes) -> Tuple[bytes, bytes]:
     keys = PBKDF2(key, salt, 32, count=1000000, hmac_hash_module=SHA512)
     key1 = keys[:16]
     key2 = keys[16:]
+
+    return key1, key2
     
 def hmac(msg: bytes, hmac_key: bytes) -> bytes:
     """
     Takes a hmac_key and creates a b64 tag for the msg
+    :return: a Hecadecimal encoded tag
     """
     h = HMAC.new(secret, digestmod=SHA256)
     h.update(msg)
@@ -116,15 +119,19 @@ def hmac(msg: bytes, hmac_key: bytes) -> bytes:
 def check_hmac(msg: bytes, mac: bytes, hmac_key: bytes) -> bytes:
     """
     Takes a hmac_key and a mac and checks the msg tag
+    :mac: A hexadecimal encoded tag
     """
 
+    valid = False
     h = HMAC.new(hmac_key, digestmod=SHA256)
     h.update(msg)
     try:
         h.hexverify(mac)
-        print("The message '%s' is authentic" % msg)
+        valid = True
     except ValueError:
         print("The message or the key is wrong")
+
+    return valid
 
 
     

@@ -14,13 +14,15 @@ class Request:
         return "kind" in self.data
 
     def is_message(self) -> bool:
-        return self.is_valid() and self.data["kind"] == REQUEST_KIND_MESSAGE and "sender" in self.data and "recipient" in self.data and "message" in self.data and "iv" in self.data
+        # TODO Format the line
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_MESSAGE and "sender" in self.data and "recipient" in self.data and "message" in self.data and "iv" in self.data and "tag" in self.data
 
     def is_login(self) -> bool:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_LOGIN and "username" in self.data
 
     def is_initiate_chat(self) -> bool:
-        return self.is_valid() and self.data["kind"] == REQUEST_KIND_INITIATE_CHAT and "requester" in self.data and "recipient" in self.data
+        # TODO Format the line
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_INITIATE_CHAT and "requester" in self.data and "recipient" in self.data and "encrypted" in self.data and "signed" in self.data
 
     def is_broadcast(self) -> bool:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_BROADCAST and "message" in self.data
@@ -34,8 +36,8 @@ def create_request(kind: str, values: List[Tuple[str, str]]) -> bytes:
     json_data = json.dumps(data, sort_keys=False, indent=2)
     return json_data.encode()
 
-def message(sender: str, recipient: str, msg: str, iv: str) -> bytes:
-    values = [("sender", sender), ("recipient", recipient), ("message", msg), ("iv", iv)]
+def message(sender: str, recipient: str, msg: str, iv: str, tag: bytes) -> bytes:
+    values = [("sender", sender), ("recipient", recipient), ("message", msg), ("iv", iv), ("tag", tag)]
     return create_request(REQUEST_KIND_MESSAGE, values)
 
 def login(username: str) -> bytes:
