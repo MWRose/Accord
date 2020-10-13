@@ -67,7 +67,8 @@ class Server:
                 threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
 
     def broadcast(self, msg):
-        for connection in self.clients:
+        for connection in self.clients.values():
+            print(connection)
             connection.send(Requests.broadcast(msg))
 
     def handle_client(self,c,username,addr):
