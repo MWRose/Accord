@@ -66,24 +66,32 @@ class Client:
                 self.send_handshake()
             else:
                 msg = input("Message: ")
-                print(self.contacts[self.recipient])
-                msg, iv = Crypto_Functions.aes_encrypt(msg, self.contacts[self.recipient])
+
+                # Get shared key
+                aes_key = self.contacts[self.recipient]["aes"]
+                hmac_key = self.contacts[self.recipient]["hmac"]
+
+                # Encrypt
+                enc_msg, iv = Crypto_Functions.aes_encrypt(msg, aes_key)
+
+                # Create message tag on encypted data
+                tag = Crypto_Functions.hmac(enc_msg, hmac_key)
 
                 # Encoding
-                msg_b64 = base64.b64encode(msg)
+                enc_msg_b64 = base64.b64encode(enc_msg)
                 iv_b64 = base64.b64encode(iv)
     
-                self.s.send(Requests.message(self.username, self.recipient, str(msg_b64), str(iv_b64))) 
+                self.s.send(Requests.message(self.username, self.recipient, str(msg_b64), str(iv_b64), tag)) 
 
     def handle_receive(self):
         while True:
             data = self.s.recv(2048)
             request = Requests.parse_request(data)
-            print(data)
+            # print(data)
             # Handle different message types
             if request.is_message():
                 sender = request.data["sender"]
-                print("receive message", sender)
+                # print("receive message", sender)
 
                 # Decode messages
                 enc_msg_b64 = request.data["message"].encode()[2:-1]
@@ -91,10 +99,18 @@ class Client:
                 enc_msg = base64.b64decode(enc_msg_b64)
                 iv = base64.b64decode(iv_b64)
 
-                # Decrypt message
-                print(self.contacts[sender])
+                # Get shared key
+                aes_key = self.contacts[sender]["aes"]
+                hmac_key = self.contacts[sender]["hmac"]
 
-                decrypted_msg = Crypto_Functions.aes_decrypt(enc_msg, iv, self.contacts[sender])
+                # Check tag
+                tag = request["tag"]
+                valid = Crypto_Functions.check_hmac(enc_msg, tag, hmac_key)
+                if not valid:
+                    raise Exception("AHHHH")
+
+                # Decrypt message
+                decrypted_msg = Crypto_Functions.aes_decrypt(enc_msg, iv, aes_key)
     
                 print(sender + ": " + decrypted_msg)
             elif request.is_broadcast():
@@ -107,15 +123,15 @@ class Client:
         # Message contents
         username = self.username
         recipient = self.recipient
-        aes_key = Crypto_Functions.generate_session_key()
-        print("reg",aes_key)
+        key = Crypto_Functions.generate_session_key()
+        print("reg", key)
 
         # RSA encrypt the key
-        # sender, recipient, encrypted(sender, recipient, aes_key), signed(encrpyted(---))
-        aes_key_b64 = base64.b64encode(aes_key)
-        encrypt_msg = username + "," + recipient + "," + str(aes_key_b64)
+        # sender, recipient, encrypted(sender, recipient, key), signed(encrpyted(---))
+        key_b64 = base64.b64encode(key)
+        encrypt_msg = username + "," + recipient + "," + str(key_b64)
         encrypted = Crypto_Functions.rsa_encrypt(encrypt_msg, self.public_keys[recipient])
-        print("b64",str(aes_key_b64))
+        print("b64",str(key_b64))
         encrypted_b64 = base64.b64encode(encrypted)
 
         # Create a signature for the message contents
@@ -125,7 +141,11 @@ class Client:
 
         request = Requests.initiate_chat(self.username, self.recipient, str(encrypted_b64), str(signed_b64))
         self.s.send(request)
-        self.contacts[recipient] = aes_key
+
+        # Transform key into two keys
+        aes_key, hmac_key = Crypto_Functions.hash_keys(key)
+
+        self.contacts[recipient] = {"aes": aes_key, "hmac": hmac_key}
 
 
     def receive_handshake(self, data):
@@ -160,11 +180,15 @@ class Client:
                 enc_recipient = decrypted_msg_split[1]
                 # TODO: Check that these are the same
 
-                aes_key_b64 = decrypted_msg_split[2].encode()[2:-1]
+                key_b64 = decrypted_msg_split[2].encode()[2:-1]
                 # print(aes_key_b64)
-                aes_key = base64.b64decode(aes_key_b64)
+                key = base64.b64decode(key_b64)
                 # print("aes key", aes_key)
-                self.contacts[requester] = aes_key
+
+                # Transform key into two keys
+                aes_key, hmac_key = Crypto_Functions.hash_keys(key)
+
+                self.contacts[requester] = {"aes":aes_key, "hmac": hmac_key}
         else:
             print("User doesn't match intended recipient")
     
