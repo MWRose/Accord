@@ -1,9 +1,10 @@
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.Padding import pad, unpad
-from Crypto.Hash import SHA256, HMAC
+from Crypto.Hash import SHA256, HMAC, SHA512
 from Crypto.Signature import pkcs1_15
 from Crypto.Random import get_random_bytes
+from Crypto.Protocol.KDF import PBKDF2
 
 from typing import Tuple
 
@@ -91,6 +92,42 @@ def rsa_check_sign(msg: bytes, signature: bytes, public_key: bytes) -> bool:
         print("not valid")
 
     return valid
+
+
+def hash_key(key: bytes) -> Tuple[bytes, bytes]:
+    """
+    Takes a key and return two hashes of it
+    """
+
+    salt = get_random_bytes(16)
+    keys = PBKDF2(key, salt, 32, count=1000000, hmac_hash_module=SHA512)
+    key1 = keys[:16]
+    key2 = keys[16:]
+    
+def hmac(msg: bytes, hmac_key: bytes) -> bytes:
+    """
+    Takes a hmac_key and creates a b64 tag for the msg
+    """
+    h = HMAC.new(secret, digestmod=SHA256)
+    h.update(msg)
+    return h.hexdigest()
+
+
+def check_hmac(msg: bytes, mac: bytes, hmac_key: bytes) -> bytes:
+    """
+    Takes a hmac_key and a mac and checks the msg tag
+    """
+
+    h = HMAC.new(hmac_key, digestmod=SHA256)
+    h.update(msg)
+    try:
+        h.hexverify(mac)
+        print("The message '%s' is authentic" % msg)
+    except ValueError:
+        print("The message or the key is wrong")
+
+
+    
     
 
 

@@ -134,7 +134,6 @@ class Client:
         if recipient == self.username:
             # Parsed message contents
             requester = data["requester"]
-            print("recieve hadnshake: ",requester)
             encrypted_b64 = data["encrypted"]
             signed_b64 = data["signed"]
 
@@ -154,16 +153,17 @@ class Client:
                 # Parse encrpyted message
                 decrypted_msg = Crypto_Functions.rsa_decrypt(encrypted, self.private_key)
                 decrypted_msg_split = decrypted_msg.split(",", 2)
+                print(decrypted_msg_split)
 
                 # Check the contents of the sender and re
                 enc_sender = decrypted_msg_split[0]
                 enc_recipient = decrypted_msg_split[1]
                 # TODO: Check that these are the same
 
-                aes_key_b64 = decrypted_msg_split[2].encode()[2:1]
-                print(aes_key_b64)
+                aes_key_b64 = decrypted_msg_split[2].encode()[2:-1]
+                # print(aes_key_b64)
                 aes_key = base64.b64decode(aes_key_b64)
-                print(aes_key)
+                # print("aes key", aes_key)
                 self.contacts[requester] = aes_key
         else:
             print("User doesn't match intended recipient")
