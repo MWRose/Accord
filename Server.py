@@ -62,13 +62,11 @@ class Server:
                 self.broadcast(username + " has entered the chat.")
 
                 self.clients[username] = c
-                print("clients: ", self.clients)
 
                 threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
 
     def broadcast(self, msg):
         for connection in self.clients.values():
-            print(connection)
             connection.send(Requests.broadcast(msg))
 
     def handle_client(self,c,username,addr):

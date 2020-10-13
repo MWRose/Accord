@@ -99,7 +99,7 @@ def hash_keys(key: bytes) -> Tuple[bytes, bytes]:
     Takes a key and return two hashes of it
     """
 
-    salt = get_random_bytes(16)
+    salt = b'1234567890123456'
     keys = PBKDF2(key, salt, 32, count=1000000, hmac_hash_module=SHA512)
     key1 = keys[:16]
     key2 = keys[16:]
@@ -111,7 +111,7 @@ def hmac(msg: bytes, hmac_key: bytes) -> bytes:
     Takes a hmac_key and creates a b64 tag for the msg
     :return: a Hecadecimal encoded tag
     """
-    h = HMAC.new(secret, digestmod=SHA256)
+    h = HMAC.new(hmac_key, digestmod=SHA256)
     h.update(msg)
     return h.hexdigest()
 

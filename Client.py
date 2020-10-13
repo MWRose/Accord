@@ -81,17 +81,16 @@ class Client:
                 enc_msg_b64 = base64.b64encode(enc_msg)
                 iv_b64 = base64.b64encode(iv)
     
-                self.s.send(Requests.message(self.username, self.recipient, str(msg_b64), str(iv_b64), tag)) 
+                self.s.send(Requests.message(self.username, self.recipient, str(enc_msg_b64), str(iv_b64), tag)) 
 
     def handle_receive(self):
         while True:
             data = self.s.recv(2048)
             request = Requests.parse_request(data)
-            # print(data)
+
             # Handle different message types
             if request.is_message():
                 sender = request.data["sender"]
-                # print("receive message", sender)
 
                 # Decode messages
                 enc_msg_b64 = request.data["message"].encode()[2:-1]
@@ -104,7 +103,7 @@ class Client:
                 hmac_key = self.contacts[sender]["hmac"]
 
                 # Check tag
-                tag = request["tag"]
+                tag = request.data["tag"]
                 valid = Crypto_Functions.check_hmac(enc_msg, tag, hmac_key)
                 if not valid:
                     raise Exception("AHHHH")
@@ -124,14 +123,11 @@ class Client:
         username = self.username
         recipient = self.recipient
         key = Crypto_Functions.generate_session_key()
-        print("reg", key)
 
-        # RSA encrypt the key
-        # sender, recipient, encrypted(sender, recipient, key), signed(encrpyted(---))
+        # RSA encrypt the msg
         key_b64 = base64.b64encode(key)
         encrypt_msg = username + "," + recipient + "," + str(key_b64)
         encrypted = Crypto_Functions.rsa_encrypt(encrypt_msg, self.public_keys[recipient])
-        print("b64",str(key_b64))
         encrypted_b64 = base64.b64encode(encrypted)
 
         # Create a signature for the message contents
@@ -152,6 +148,7 @@ class Client:
         recipient = data["recipient"]
         
         if recipient == self.username:
+
             # Parsed message contents
             requester = data["requester"]
             encrypted_b64 = data["encrypted"]
@@ -159,7 +156,6 @@ class Client:
 
             encrypted = base64.b64decode(encrypted_b64.encode()[2:-1])
             signed = base64.b64decode(signed_b64.encode()[2:-1])
-            #print(signed, type(signed))
             
             # Check if we have the requesters public_key, and if not get it
             if requester not in self.public_keys:
@@ -173,17 +169,13 @@ class Client:
                 # Parse encrpyted message
                 decrypted_msg = Crypto_Functions.rsa_decrypt(encrypted, self.private_key)
                 decrypted_msg_split = decrypted_msg.split(",", 2)
-                print(decrypted_msg_split)
 
                 # Check the contents of the sender and re
                 enc_sender = decrypted_msg_split[0]
                 enc_recipient = decrypted_msg_split[1]
-                # TODO: Check that these are the same
 
                 key_b64 = decrypted_msg_split[2].encode()[2:-1]
-                # print(aes_key_b64)
                 key = base64.b64decode(key_b64)
-                # print("aes key", aes_key)
 
                 # Transform key into two keys
                 aes_key, hmac_key = Crypto_Functions.hash_keys(key)
