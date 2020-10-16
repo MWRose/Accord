@@ -17,16 +17,20 @@ class Client:
         print ("Chat away!")
 
 
-        self.recipient = ""
-        self.private_key = ""
-        self.public_keys = {}
-        self.contacts = {}
-        self.username = input("Enter username: ")
+        self.recipient = ""        # Direct message recipient
+        self.recipient_group = ""  # Group message name
+        self.group_names = []      # Names of members of the group
+        self.private_key = ""      # Private key for the client
+        self.public_keys = {}      # Public keys for other clients
+        self.contacts = {}         # Contacts that have shared a key {"aes_key", "hmac_key"}
+        self.groups = {}           # Group chats with a shared key and members {"aes_key", "hmac_key", "members"}
+        self.username = input("Enter username: ") # Username of this client
 
 
         # TODO Establish public and private keys
         Gen.generate_key_pair(self.username)
 
+    
         self.populate_private_key()
         self.create_connection()
 
@@ -59,11 +63,85 @@ class Client:
     def handle_send(self):
         while True:
             if not self.recipient:
-                self.recipient = input("Recipient: ")
+                message_type = input("group or private? ")
+                if (message_type == "private"):
+                    self.recipient = input("Recipient: ")
+                    self.send_private()
+
+                elif (message_type == "group"): 
+                    is_new = False
+                    inp = input("Start a new group chat or chat with existing group chat? ")
+                    if (inp == "new" or "0"):
+                        is_new = True
+                    elif (inp == "existing" or "1"):
+                        is_new = False
+                    else: 
+                        print("Please type new or existing.")
+                
+
+                    if (is_new):
+                        group = input("Type in the members separated with a comma: ")
+                        
+                        #TODO: A check for if these are valid group members?? 
+                        self.group_names = group.split(',')
+
+
+
+                    else:
+                        group = input("Enter group name: ")
+                        if not group in groups:
+                            print("The group was not found")
+                        else:
+                            self.recipient_group = group
+                            self.group_names = groups[group]["members"]
+
+                    self.send_group()
+
+                else: 
+                    print("Enter valid response: group or private")
             self.populate_public_keys(self.recipient)
+            
+
+    def send_group(self):
+        if (self.recipient_group not in self.groups):
+
+            self.recipient_group = input("What would you like to name the group? ")
+
+            # Send a handshake to each member in the group
+            for recipient in self.group_names:
+                if recipient == self.username:
+                    continue
+                self.recipient = recipient
+                self.populate_public_keys(self.recipient)
+                self.send_handshake(True)
+            self.recipient = ""
+        
+        else:
+            msg = input("Message: ")
+
+            # Get shared key
+            aes_key = self.groups[self.recipient_group]["aes"]
+            hmac_key = self.groups[self.recipient_group]["hmac"]
+
+            # Encrypt
+            enc_msg, iv = Crypto_Functions.aes_encrypt(msg, aes_key)
+
+            # Create message tag on encypted data
+            tag = Crypto_Functions.hmac(enc_msg, hmac_key)
+
+            # Encoding
+            enc_msg_b64 = base64.b64encode(enc_msg)
+            iv_b64 = base64.b64encode(iv)
+
+            self.s.send(Requests.group_message(self.username, ",".join(self.group_names), self.recipient_group, str(enc_msg_b64), str(iv_b64), tag))
+
+            
+    
+    def send_private(self):
+        
             # Check if chat has already been initiated with this recipient
             if (self.recipient not in self.contacts):
-                self.send_handshake()
+                self.send_handshake(False)
             else:
                 msg = input("Message: ")
 
@@ -81,7 +159,8 @@ class Client:
                 enc_msg_b64 = base64.b64encode(enc_msg)
                 iv_b64 = base64.b64encode(iv)
     
-                self.s.send(Requests.message(self.username, self.recipient, str(enc_msg_b64), str(iv_b64), tag)) 
+                self.s.send(Requests.message(self.username, self.recipient, str(enc_msg_b64), str(iv_b64), tag))
+
 
     def handle_receive(self):
         while True:
@@ -89,35 +168,73 @@ class Client:
             request = Requests.parse_request(data)
 
             # Handle different message types
-            if request.is_message():
-                sender = request.data["sender"]
-
-                # Decode messages
-                enc_msg_b64 = request.data["message"].encode()[2:-1]
-                iv_b64 = request.data["iv"].encode()[2:-1]
-                enc_msg = base64.b64decode(enc_msg_b64)
-                iv = base64.b64decode(iv_b64)
-
-                # Get shared key
-                aes_key = self.contacts[sender]["aes"]
-                hmac_key = self.contacts[sender]["hmac"]
-
-                # Check tag
-                tag = request.data["tag"]
-                valid = Crypto_Functions.check_hmac(enc_msg, tag, hmac_key)
-                if not valid:
-                    raise Exception("AHHHH")
-
-                # Decrypt message
-                decrypted_msg = Crypto_Functions.aes_decrypt(enc_msg, iv, aes_key)
-    
-                print(sender + ": " + decrypted_msg)
+            if request.is_direct_message():
+                self.receive_private(data)
+            elif request.is_group_message():
+                self.receive_group(data)
             elif request.is_broadcast():
                 print(request.data["message"]) 
-            elif request.is_initiate_chat():
-                self.receive_handshake(request.data)
 
-    def send_handshake(self):
+            # If its a group, recieve one way
+            elif request.is_initiate_group_chat():
+                self.receive_handshake(request.data, True)
+            elif request.is_initiate_direct_message():
+                self.receive_handshake(request.data, False)
+                
+    
+    def receive_private(self, data):
+
+        sender = request.data["sender"]
+
+        # Decode messages
+        enc_msg_b64 = request.data["message"].encode()[2:-1]
+        iv_b64 = request.data["iv"].encode()[2:-1]
+        enc_msg = base64.b64decode(enc_msg_b64)
+        iv = base64.b64decode(iv_b64)
+
+        # Get shared key
+        aes_key = self.contacts[sender]["aes"]
+        hmac_key = self.contacts[sender]["hmac"]
+
+        # Check tag
+        tag = request.data["tag"]
+        valid = Crypto_Functions.check_hmac(enc_msg, tag, hmac_key)
+        if not valid:
+            raise Exception("AHHHH")
+
+        # Decrypt message
+        decrypted_msg = Crypto_Functions.aes_decrypt(enc_msg, iv, aes_key)
+
+        print(sender + ": " + decrypted_msg)
+
+
+    def receive_group(self, data):
+
+        sender = request.data["sender"]
+
+        # Decode messages
+        enc_msg_b64 = request.data["message"].encode()[2:-1]
+        iv_b64 = request.data["iv"].encode()[2:-1]
+        enc_msg = base64.b64decode(enc_msg_b64)
+        iv = base64.b64decode(iv_b64)
+
+        # Get shared key
+        aes_key = self.groups[sender]["aes"]
+        hmac_key = self.groups[sender]["hmac"]
+
+        # Check tag
+        tag = request.data["tag"]
+        valid = Crypto_Functions.check_hmac(enc_msg, tag, hmac_key)
+        if not valid:
+            raise Exception("AHHHH")
+
+        # Decrypt message
+        decrypted_msg = Crypto_Functions.aes_decrypt(enc_msg, iv, aes_key)
+
+        print(sender + " to " + data["group_name"] + ": " + decrypted_msg)
+
+    
+    def send_handshake(self, is_group: bool):
 
         # Message contents
         username = self.username
@@ -135,20 +252,21 @@ class Client:
         signed = Crypto_Functions.rsa_sign(signature, self.private_key)
         signed_b64 = base64.b64encode(signed)
 
-        request = Requests.initiate_chat(self.username, self.recipient, str(encrypted_b64), str(signed_b64))
-        self.s.send(request)
-
         # Transform key into two keys
         aes_key, hmac_key = Crypto_Functions.hash_keys(key)
 
-        self.contacts[recipient] = {"aes": aes_key, "hmac": hmac_key}
+        if is_group:
+            request = Requests.initiate_group_chat(self.username, self.recipient,  str(encrypted_b64), str(signed_b64))
+            self.groups[self.recipient_group] = {"aes": aes_key, "hmac": hmac_key, "members": self.group_names}
+        else:
+            request = Requests.initiate_direct_message(self.username, self.recipient, str(encrypted_b64), str(signed_b64))
+            self.contacts[recipient] = {"aes": aes_key, "hmac": hmac_key}
+            
+        self.s.send(request)
 
 
-    def receive_handshake(self, data):
-        recipient = data["recipient"]
-        
-        if recipient == self.username:
-
+    def receive_handshake(self, data, is_group: bool):
+        if (is_group and self.username in data["recipients"].split(",")) or self.username == data["recipient"]:
             # Parsed message contents
             requester = data["requester"]
             encrypted_b64 = data["encrypted"]
@@ -179,11 +297,15 @@ class Client:
 
                 # Transform key into two keys
                 aes_key, hmac_key = Crypto_Functions.hash_keys(key)
-
-                self.contacts[requester] = {"aes":aes_key, "hmac": hmac_key}
+                if is_group:
+                    group_name = data["group_name"]
+                    members = data["members"].split(",")
+                    self.groups[group_name] = {"aes":aes_key, "hmac": hmac_key, "members": members, "group_name":group_name}
+                else: 
+                    self.contacts[requester] = {"aes":aes_key, "hmac": hmac_key}
         else:
             print("User doesn't match intended recipient")
-    
+
         
     def populate_public_keys(self, user_name: str):
         with open('public_{}.pem'.format(user_name), 'rb') as public:
@@ -195,9 +317,4 @@ class Client:
         f.close()
             
         
-        
-        
-        
-    
-
 client = Client()

@@ -88,16 +88,23 @@ class Server:
 
     def handle_recipient(self, data):
         request = Requests.parse_request(data)
-        recipient = request.data["recipient"]
-        if request.is_initiate_chat():
+        if request.is_initiate_direct_message() or request.is_initiate_group_chat():
             # Initiate new chat between 2 connections
+            recipient = request.data["recipient"]
             if recipient in self.clients: 
                 self.clients[recipient].send(data)
-        # Existing chat
-        elif request.is_message():
+        # Existing direct message
+        elif request.is_direct_message():
+            recipient = request.data["recipient"]
             if recipient in self.clients: 
                 self.clients[recipient].send(data)
-
+        # Existing group message
+        elif request.is_group_message():
+            members = request.data["members"].split(",")
+            for member in members:
+                if member in clients:
+                    self.clients[member].send(data)
+    
     def check_database(self,user):
         if Database.check_email(user):
             print("User :", user, "in Database")
