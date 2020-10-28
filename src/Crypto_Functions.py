@@ -132,9 +132,3 @@ def check_hmac(msg: bytes, mac: bytes, hmac_key: bytes) -> bytes:
         print("The message or the key is wrong")
 
     return valid
-
-
-    
-    
-
-
