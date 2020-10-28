@@ -30,15 +30,15 @@ class Request:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_LOGIN and "username" in self.data
 
     def __is_initate_chat(self) -> bool:
-        return self.is_valid() and "requester" in self.data and "recipient" in self.data and "encrypted" in self.data and "signed" in self.data
+        return self.is_valid() and "requester" in self.data and "encrypted" in self.data and "signed" in self.data
 
     def is_initiate_direct_message(self) -> bool:
         # TODO Format the line
-        return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_DIRECT_MESSAGE
+        return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_DIRECT_CHAT and "recipient" in self.data 
 
     def is_initiate_group_chat(self) -> bool:
         # TODO Format the line
-        return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_GROUP_CHAT and self.data["group_name"]
+        return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_GROUP_CHAT and "recipients" in self.data
 
     def is_broadcast(self) -> bool:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_BROADCAST and "message" in self.data

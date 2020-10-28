@@ -88,11 +88,20 @@ class Server:
 
     def handle_recipient(self, data):
         request = Requests.parse_request(data)
-        if request.is_initiate_direct_message() or request.is_initiate_group_chat():
+        if request.is_initiate_direct_message():
             # Initiate new chat between 2 connections
             recipient = request.data["recipient"]
-            if recipient in self.clients: 
+            sender = request.data["requester"]
+            if recipient in self.clients:
                 self.clients[recipient].send(data)
+        elif request.is_initiate_group_chat():
+            recipients = request.data["recipients"].split(",")
+            sender = request.data["requester"]
+            for recipient in recipients:
+                # Skip sending back the handshake to the original sender in the group
+                # message handshake 
+                if recipient in self.clients and not (sender == recipient):
+                    self.clients[recipient].send(data)
         # Existing direct message
         elif request.is_direct_message():
             recipient = request.data["recipient"]
@@ -101,9 +110,11 @@ class Server:
         # Existing group message
         elif request.is_group_message():
             members = request.data["members"].split(",")
+            sender = request.data["sender"]
             for member in members:
-                if member in clients:
-                    self.clients[member].send(data)
+                if member in self.clients:
+                    if member != sender:
+                        self.clients[member].send(data)
     
     def check_database(self,user):
         if Database.check_email(user):

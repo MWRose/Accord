@@ -60,15 +60,62 @@ class Client:
         receive_handler = threading.Thread(target=self.handle_receive,args=())
         receive_handler.start()
 
+
+    def choose_send(self):
+        pass
+        message_type = input("group or private? ")
+
+        if (message_type == "private"):
+            self.recipient = input("Recipient: ")
+            self.recipient_group = ""
+            self.populate_public_keys(self.recipient)
+            self.send_private()
+
+        elif (message_type == "group"):
+
+            self.recipient = ""
+                
+            # Get user input for group or not
+            is_new = False
+            inp = input("Start a new group chat or chat with existing group chat? ")
+            if (inp == "new" or "0"):
+                is_new = True
+            elif (inp == "existing" or "1"):
+                is_new = False
+            else: 
+                print("Please type new or existing.")
+        
+            # Check if the group is new
+            if (is_new):
+                group = input("Type in the members separated with a comma: ")
+                
+                #TODO: A check for if these are valid group members?? 
+                self.group_names = group.split(',')
+
+            # The group already exists
+            else:
+                group = input("Enter group name: ")
+                if not group in groups:
+                    print("The group was not found")
+                else:
+                    self.recipient_group = group
+                    self.group_names = groups[group]["members"]
+
+            self.send_group()
+
+
     def handle_send(self):
         while True:
-            if not self.recipient:
+            if not self.recipient or not self.receive_group:
                 message_type = input("group or private? ")
                 if (message_type == "private"):
                     self.recipient = input("Recipient: ")
+                    self.populate_public_keys(self.recipient)
                     self.send_private()
 
-                elif (message_type == "group"): 
+                elif (message_type == "group"):
+                     
+                    # Get user input for group or not
                     is_new = False
                     inp = input("Start a new group chat or chat with existing group chat? ")
                     if (inp == "new" or "0"):
@@ -78,15 +125,14 @@ class Client:
                     else: 
                         print("Please type new or existing.")
                 
-
+                    # Check if the group is new
                     if (is_new):
                         group = input("Type in the members separated with a comma: ")
                         
                         #TODO: A check for if these are valid group members?? 
                         self.group_names = group.split(',')
 
-
-
+                    # The group already exists
                     else:
                         group = input("Enter group name: ")
                         if not group in groups:
@@ -99,7 +145,6 @@ class Client:
 
                 else: 
                     print("Enter valid response: group or private")
-            self.populate_public_keys(self.recipient)
             
 
     def send_group(self):
@@ -109,34 +154,34 @@ class Client:
 
             # Send a handshake to each member in the group
             for recipient in self.group_names:
-                if recipient == self.username:
-                    continue
-                self.recipient = recipient
-                self.populate_public_keys(self.recipient)
-                self.send_handshake(True)
+                self.populate_public_keys(recipient)
+                
+            self.send_handshake(True)
             self.recipient = ""
+            self.send_msg_group()
         
         else:
-            msg = input("Message: ")
+            self.send_msg_group()
 
-            # Get shared key
-            aes_key = self.groups[self.recipient_group]["aes"]
-            hmac_key = self.groups[self.recipient_group]["hmac"]
+    def send_msg_group(self):  
+        msg = input("Message: ")
 
-            # Encrypt
-            enc_msg, iv = Crypto_Functions.aes_encrypt(msg, aes_key)
+        # Get shared key
+        aes_key = self.groups[self.recipient_group]["aes"]
+        hmac_key = self.groups[self.recipient_group]["hmac"]
 
-            # Create message tag on encypted data
-            tag = Crypto_Functions.hmac(enc_msg, hmac_key)
+        # Encrypt
+        enc_msg, iv = Crypto_Functions.aes_encrypt(msg, aes_key)
 
-            # Encoding
-            enc_msg_b64 = base64.b64encode(enc_msg)
-            iv_b64 = base64.b64encode(iv)
+        # Create message tag on encypted data
+        tag = Crypto_Functions.hmac(enc_msg, hmac_key)
 
-            self.s.send(Requests.group_message(self.username, ",".join(self.group_names), self.recipient_group, str(enc_msg_b64), str(iv_b64), tag))
+        # Encoding
+        enc_msg_b64 = base64.b64encode(enc_msg)
+        iv_b64 = base64.b64encode(iv)
 
-            
-    
+        self.s.send(Requests.group_message(self.username, ",".join(self.group_names), self.recipient_group, str(enc_msg_b64), str(iv_b64), tag)) 
+
     def send_private(self):
         
             # Check if chat has already been initiated with this recipient
@@ -169,21 +214,21 @@ class Client:
 
             # Handle different message types
             if request.is_direct_message():
-                self.receive_private(data)
+                self.receive_private(request)
             elif request.is_group_message():
-                self.receive_group(data)
+                self.receive_group(request)
             elif request.is_broadcast():
                 print(request.data["message"]) 
 
             # If its a group, recieve one way
             elif request.is_initiate_group_chat():
+                print("type is initiate group chat")
                 self.receive_handshake(request.data, True)
             elif request.is_initiate_direct_message():
                 self.receive_handshake(request.data, False)
                 
     
-    def receive_private(self, data):
-
+    def receive_private(self, request):
         sender = request.data["sender"]
 
         # Decode messages
@@ -208,8 +253,7 @@ class Client:
         print(sender + ": " + decrypted_msg)
 
 
-    def receive_group(self, data):
-
+    def receive_group(self, request):
         sender = request.data["sender"]
 
         # Decode messages
@@ -219,9 +263,10 @@ class Client:
         iv = base64.b64decode(iv_b64)
 
         # Get shared key
+        print(self.groups)
         aes_key = self.groups[sender]["aes"]
         hmac_key = self.groups[sender]["hmac"]
-
+        
         # Check tag
         tag = request.data["tag"]
         valid = Crypto_Functions.check_hmac(enc_msg, tag, hmac_key)
@@ -248,7 +293,10 @@ class Client:
         encrypted_b64 = base64.b64encode(encrypted)
 
         # Create a signature for the message contents
-        signature = (username + recipient + str(encrypted_b64)).encode()
+        if is_group:
+            signature = (username + ",".join(self.group_names) + str(encrypted_b64)).encode()
+        else:
+            signature = (username + recipient + str(encrypted_b64)).encode()
         signed = Crypto_Functions.rsa_sign(signature, self.private_key)
         signed_b64 = base64.b64encode(signed)
 
@@ -256,7 +304,7 @@ class Client:
         aes_key, hmac_key = Crypto_Functions.hash_keys(key)
 
         if is_group:
-            request = Requests.initiate_group_chat(self.username, self.recipient,  str(encrypted_b64), str(signed_b64))
+            request = Requests.initiate_group_chat(self.username, ",".join(self.group_names), str(encrypted_b64), str(signed_b64))
             self.groups[self.recipient_group] = {"aes": aes_key, "hmac": hmac_key, "members": self.group_names}
         else:
             request = Requests.initiate_direct_message(self.username, self.recipient, str(encrypted_b64), str(signed_b64))
@@ -266,6 +314,7 @@ class Client:
 
 
     def receive_handshake(self, data, is_group: bool):
+        print(is_group)
         if (is_group and self.username in data["recipients"].split(",")) or self.username == data["recipient"]:
             # Parsed message contents
             requester = data["requester"]
@@ -280,6 +329,7 @@ class Client:
                 self.populate_public_keys(requester)
 
             # Check the signature
+            recipient = data["recipients"] if is_group else data["recipient"]
             signature_contents = (requester + recipient + str(encrypted_b64)).encode()
             if not Crypto_Functions.rsa_check_sign(signature_contents, signed, self.public_keys[requester]):
                 print("Invalid signature")
