@@ -13,7 +13,7 @@ def initialize_database():
         conn = sqlite3.connect(DATABASE_FILE)
         cursor = conn.cursor()
         cursor.execute("""CREATE TABLE users
-                        (email text)    
+                        (email TEXT, password TEXT)    
                         """)
     except Error as e:
         print(e)
@@ -32,6 +32,16 @@ def check_email(email: str) -> bool:
     except Error:
         return False
 
+def check_password(email:str, password:str)->bool:
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE email=?", (email,))
+        result = cursor.fetchone()
+        (user, correct_pass) = result
+        return password == correct_pass
+    except Error:
+        return False
 
 def add_user_email(email:str) -> bool:
     """ adding user email into the SQLite database """
@@ -47,6 +57,27 @@ def add_user_email(email:str) -> bool:
         conn.commit()
         return True
     except Error:
+        return False
+
+
+def add_user_info(email:str, password:str) -> bool:
+    """ adding user email & password  into the SQLite database """
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
+        sqlite_insert_with_param = """
+                    INSERT INTO users
+                    (email,password)
+                    VALUES(?,?);
+                    """
+        cursor.execute(sqlite_insert_with_param, (email, password))
+        conn.commit()
+ 
+        #for x in cursor.execute("SELECT * FROM users").fetchall():
+        #    print(x,type(x))
+        conn.close()
+        return True
+    except Error as e:
         return False
 
 def initialize_log_database():
@@ -98,11 +129,12 @@ def print_logs():
     
 
 if __name__ == '__main__':
-    #initalize_database()
-    #print(check_email("pavle.rohalj@pomona.edu"))
+    initialize_database()
+    print(add_user_info("at@gmail.com","StronkPass1"))
+    print(check_email("at@gmail.com"))
+    print(check_password("at@gmail.com","StronkPass1"))
+    print(check_password("at@gmail.com","StronkPass2"))
     #print(add_user_email("pavle.rohalj@pomona.edu"))
+    #print(add_user_info("at@gmail.com","StronkPass1"))
     #print(check_email("pavle.rohalj@pomona.edu"))
-    #initialize_log_database()
-    add_log("BOB","ALICE")
-    add_log("ALICE","BOB")
-    print_logs()
+    

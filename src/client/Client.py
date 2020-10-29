@@ -7,6 +7,8 @@ import Send, Receive
 import Requests
 import base64
 import Gen
+import Database
+import PasswordChecker
 
 # Argument: IP address, port number
 # Can run this multiple times for multiple different users
@@ -25,7 +27,27 @@ class Client:
         self.public_keys = {}      # Public keys for other clients
         self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
         self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
-        self.username = input("Enter username: ") # Username of this client
+        self.username = input("Enter email: ") # Username of this client
+        
+
+        
+        Database.initialize_database()
+        # Sign in to existing account
+        if (Database.check_email(username)):
+            self.password = input("Enter your password: ")
+            if (Database.check_password(self.username, self.password)):
+                # Correct password
+                # TODO: continue
+                continue
+        # Create new account 
+        else: 
+            self.password = input("Create new password: ")
+            if (PasswordChecker(self.password).password_checker()):
+                # Save new password
+                Database.add_user_info(self.username, self.password)
+            else: 
+                print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
+
 
 
         # TODO Establish public and private keys
@@ -199,7 +221,6 @@ class Client:
                 self.contacts[requester]{"aes_key"} = keys["aes"]
                 self.contacts[requester]{"hmac_key"} = keys["hmac"]
 
-    
     def populate_public_keys(self, user_name: str):
         with open('public_{}.pem'.format(user_name), 'rb') as public:
             self.public_keys[user_name] = public.read() # This is still a string
