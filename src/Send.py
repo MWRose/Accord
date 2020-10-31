@@ -58,13 +58,13 @@ def send_group_handshake(sender, recipient, members, s, sender_private_key, reci
 #     recipient = ""
 #     send_msg_group()
 
-def send_group_message(message, sender, recipient, group_name, s, group_members):
+def send_group_message(message, sender, recipient, group_name, s, group_members, groups):
     # Get shared key
-    aes_key = groups[group_name]["aes"]
-    hmac_key = groups[group_name]["hmac"]
+    aes_key = groups[group_name]["aes_key"]
+    hmac_key = groups[group_name]["hmac_key"]
 
     # Encrypt
-    enc_msg, iv = Crypto_Functions.aes_encrypt(msg, aes_key)
+    enc_msg, iv = Crypto_Functions.aes_encrypt(message, aes_key)
 
     # Create message tag on encypted data
     tag = Crypto_Functions.hmac(enc_msg, hmac_key)
@@ -76,9 +76,9 @@ def send_group_message(message, sender, recipient, group_name, s, group_members)
     s.send(Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), tag))
 
 def send_direct(sender, recipient, contacts, message, s):
-    # Get shared key
-    aes_key = contacts[recipient]["aes"]
-    hmac_key = contacts[recipient]["hmac"]
+    # Get keys
+    aes_key = contacts[recipient]["aes_key"]
+    hmac_key = contacts[recipient]["hmac_key"]
 
     # Encrypt
     enc_msg, iv = Crypto_Functions.aes_encrypt(message, aes_key)

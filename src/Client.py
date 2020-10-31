@@ -143,19 +143,20 @@ class Client:
                 if (message_type == "direct"):
                     self.recipient = input("Recipient: ")
                     self.populate_public_keys(self.recipient)
+
+                    # Check whether we have to send handshake
                     if (self.recipient not in self.contacts or "aes_key" not in self.contacts[self.recipient]):
+                        # Send handshake 
                         # keys = {"aes": ..., "hmac": ...}
                         keys = Send.send_direct_handshake(self.username, self.recipient, self.s, self.private_key, self.contacts[self.recipient]["public_key"])
-                        self.contacts[self.recipient] = {
-                            "aes": keys["aes"],
-                            "hmac": keys["hmac"],
-                            "public_key": self.contacts[self.recipient]["public_key"]
-                        }
-                        msg = input("Message: ")
-                        Send.send_direct(self.recipient, self.contacts, msg, self.s)
-                    else:
-                        msg = input("Message: ")
-                        Send.send_direct(self.recipient, self.contacts, msg, self.s)
+                        
+                        # Update recipient's keys
+                        self.contacts[self.recipient]["aes_key"] = keys["aes"]
+                        self.contacts[self.recipient]["hmac_key"] = keys["hmac"]
+                    
+                    # Send the message
+                    msg = input("Message: ")
+                    Send.send_direct(self.username, self.recipient, self.contacts, msg, self.s)
 
                 elif (message_type == "group"):
                     # Get user input for group or not
@@ -178,11 +179,11 @@ class Client:
                     # The group already exists
                     else:
                         group = input("Enter group name: ")
-                        if not group in groups:
+                        if not group in self.groups:
                             print("The group was not found")
                         else:
                             self.group_name = group
-                            self.group_members = groups[group]["members"]
+                            self.group_members = self.groups[group]["members"]
 
                     if (self.group_name not in self.groups):
                         self.group_name = input("What would you like to name the group? ")
@@ -190,11 +191,11 @@ class Client:
                         for recipient in self.group_members:
                             self.populate_public_keys(recipient)
                             keys = Send.send_group_handshake(self.username, recipient, self.group_members, self.s, self.private_key, self.contacts[recipient]["public_key"])
-                            self.groups[group_name] = keys
+                            self.groups[self.group_name] = keys
                     else:
                         msg = input("Message: ")
                         for recipient in self.group_members:
-                            Send.send_group_message(msg, self.username, recipient, self.group_name, self.s, self.group_members)
+                            Send.send_group_message(msg, self.username, recipient, self.group_name, self.s, self.group_members, self.groups)
                 else: 
                     print("Enter valid response: group or direct")
 
@@ -224,21 +225,22 @@ class Client:
                 self.groups[group_name] = {"aes_key": aes_key, "hmac_key": hmac_key, "members": members}
 
             elif request.is_initiate_direct_message():
-                requester = data["requester"]
-                if requester not in self.public_keys:
+                requester = request.data["requester"]
+                if requester not in self.contacts:
                     self.populate_public_keys(requester)
-                keys = Receive.receive_direct_handshake(request.data, self.username, self.contacts, self.public_keys[requester], self.private_key)
+                keys = Receive.receive_direct_handshake(request.data, self.contacts, self.contacts[requester]["public_key"], self.private_key)
                 aes_key = keys["aes"]
                 hmac_key = keys["hmac"]
 
                 # This will add or overwrite two fields to the requester's contact, leaving the others
-                self.contacts[requester]["aes_key"] = keys["aes"]
-                self.contacts[requester]["hmac_key"] = keys["hmac"]
+                self.contacts[requester]["aes_key"] = aes_key
+                self.contacts[requester]["hmac_key"] = hmac_key
 
-    def populate_public_keys(self, user_name: str):
-        with open('public_{}.pem'.format(user_name), 'rb') as public:
-            self.contacts[user_name] = dict()
-            self.contacts[user_name]["public_key"] = public.read() # This is still a string
+    def populate_public_keys(self, username: str):
+        with open('public_{}.pem'.format(username), 'rb') as public:
+            if username not in self.contacts:
+                self.contacts[username] = dict()
+            self.contacts[username]["public_key"] = public.read() # This is still a string
 
     def populate_private_key(self):
         f =  open('private_{}.pem'.format(self.username), 'rb')

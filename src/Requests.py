@@ -1,10 +1,10 @@
 import json
 from typing import Dict, List, Tuple
 
-REQUEST_KIND_DIRECT_MESSAGE = "group_message"
-REQUEST_KIND_GROUP_MESSAGE = "direct_message"
+REQUEST_KIND_DIRECT_MESSAGE = "direct_message"
+REQUEST_KIND_GROUP_MESSAGE = "group_message"
 REQUEST_KIND_LOGIN = "login"
-REQUEST_KIND_INITIATE_DIRECT_CHAT = "initiate_direct"
+REQUEST_KIND_INITIATE_DIRECT_MESSAGE = "initiate_direct"
 REQUEST_KIND_INITIATE_GROUP_CHAT = "initiate_group"
 REQUEST_KIND_BROADCAST = "broadcast"
 
@@ -34,7 +34,7 @@ class Request:
 
     def is_initiate_direct_message(self) -> bool:
         # TODO Format the line
-        return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_DIRECT_CHAT and "recipient" in self.data 
+        return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_DIRECT_MESSAGE and "recipient" in self.data 
 
     def is_initiate_group_chat(self) -> bool:
         # TODO Format the line
@@ -66,7 +66,7 @@ def login(username: str) -> bytes:
 
 def initiate_direct_message(requester: str, recipient: str, encrypted: bytes, signed: bytes) -> bytes:
     values = [("requester", requester), ("recipient", recipient), ("encrypted", encrypted), ("signed", signed)]
-    return create_request(REQUEST_KIND_DIRECT_MESSAGE, values)
+    return create_request(REQUEST_KIND_INITIATE_DIRECT_MESSAGE, values)
 
 def initiate_group_chat(requester: str, recipients: str, encrypted: bytes, signed: bytes) -> bytes:
     values = [("requester", requester), ("recipients", recipients), ("encrypted", encrypted), ("signed", signed)]

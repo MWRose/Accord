@@ -13,8 +13,8 @@ def receive_direct(data, contacts):
     iv = base64.b64decode(iv_b64)
 
     # Get shared key
-    aes_key = contacts[sender]["aes"]
-    hmac_key = contacts[sender]["hmac"]
+    aes_key = contacts[sender]["aes_key"]
+    hmac_key = contacts[sender]["hmac_key"]
 
     # Check tag
     tag = data["tag"]
@@ -25,7 +25,7 @@ def receive_direct(data, contacts):
     # Decrypt message
     decrypted_msg = Crypto_Functions.aes_decrypt(enc_msg, iv, aes_key)
 
-    return sender + ": " + decrypted_msg
+    print(sender + ": " + decrypted_msg)
 
 
 def receive_group(data, groups):
@@ -51,11 +51,12 @@ def receive_group(data, groups):
     # Decrypt message
     decrypted_msg = Crypto_Functions.aes_decrypt(enc_msg, iv, aes_key)
 
-    return sender + " to " + data["group_name"] + ": " + decrypted_msg
+    print(sender + " to " + data["group_name"] + ": " + decrypted_msg)
 
 def receive_direct_handshake(data, contacts, sender_public_key, recipient_private_key):
     '''receiving direct private message handshake'''
     sender = data["requester"]
+    recipient = data["recipient"]
     encrypted_b64 = data["encrypted"]
     signed_b64 = data["signed"]
 
