@@ -21,10 +21,10 @@ class Client:
 
 
         self.recipient = ""        # Direct message recipient
-        self.group_name = ""  # Group message name
-        self.group_members = []      # Names of members of the group
+        self.group_name = ""       # Group message name
+        self.group_members = []    # Names of members of the group
         self.private_key = ""      # Private key for the client
-        self.public_keys = {}      # Public keys for other clients
+        self.public_keys = {}      # Public keys for other clients TODO: Remove
         self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
         self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
         self.username = input("Enter username: ") # Username of this client
@@ -99,105 +99,86 @@ class Client:
 
         if (message_type == "direct"):
             self.recipient = input("Recipient: ")
-            self.group_name = ""
             self.populate_public_keys(self.recipient)
-            self.send_direct()
+            self.group_name = ""
+            self.group_members = []
 
-        elif (message_type == "group"):
-
-            self.recipient = ""
+            # Check whether we have to send handshake
+            if (self.recipient not in self.contacts or "aes_key" not in self.contacts[self.recipient]):
+                # Send handshake 
+                # keys = {"aes": ..., "hmac": ...}
+                keys = Send.send_direct_handshake(self.username, self.recipient, self.s, self.private_key, self.contacts[self.recipient]["public_key"])
                 
-            # Get user input for group or not
-            is_new = False
-            inp = input("Start a new group chat or chat with existing group chat? ")
-            if (inp == "new" or "0"):
-                is_new = True
-            elif (inp == "existing" or "1"):
-                is_new = False
-            else: 
-                print("Please type new or existing.")
-        
+                # Update recipient's keys
+                self.contacts[self.recipient]["aes_key"] = keys["aes"]
+                self.contacts[self.recipient]["hmac_key"] = keys["hmac"]
+            
+            
+        #TODO: Clean up this logic
+        elif (message_type == "group"):
+            self.recipient = ""
+
             # Check if the group is new
-            if (is_new):
+            if inp == "new" or "0":
                 group = input("Type in the members separated with a comma: ")
                 
                 #TODO: A check for if these are valid group members?? 
                 self.group_members = group.split(',')
 
             # The group already exists
-            else:
+            elif inp == "existing" or "1":
                 group = input("Enter group name: ")
-                if not group in groups:
+                if not group in self.groups:
                     print("The group was not found")
                 else:
                     self.group_name = group
-                    self.group_members = groups[group]["members"]
+                    self.group_members = self.groups[group]["members"]
 
-            self.send_group()
+            else:
+                print("Please type new or existing.")
+
+            if (self.group_name not in self.groups):
+                self.group_name = input("What would you like to name the group? ")
+                # Send a handshake to each member in the group
+                for recipient in self.group_members:
+                    self.populate_public_keys(recipient)
+                    keys = Send.send_group_handshake(self.username, recipient, self.group_members, self.s, self.private_key, self.contacts[recipient]["public_key"])
+                    self.groups[self.group_name] = keys
+          
+        else: 
+            print("Enter valid response: group or direct")
 
 
     def handle_send(self):
         while True:
-            if not self.recipient or not self.group_name:
-                message_type = input("group or direct? ")
-                if (message_type == "direct"):
-                    self.recipient = input("Recipient: ")
-                    self.populate_public_keys(self.recipient)
+            print(self.recipient, self.group_name)
+            if not self.recipient and not self.group_name:
+                self.choose_send()
 
-                    # Check whether we have to send handshake
-                    if (self.recipient not in self.contacts or "aes_key" not in self.contacts[self.recipient]):
-                        # Send handshake 
-                        # keys = {"aes": ..., "hmac": ...}
-                        keys = Send.send_direct_handshake(self.username, self.recipient, self.s, self.private_key, self.contacts[self.recipient]["public_key"])
-                        
-                        # Update recipient's keys
-                        self.contacts[self.recipient]["aes_key"] = keys["aes"]
-                        self.contacts[self.recipient]["hmac_key"] = keys["hmac"]
+            else:
+
+                msg = input("Message: ")
+                print("hello")
+                if msg.lower() == "choose" or msg.lower() == "change":
+                    self.choose_send()
+
+                if self.recipient and not self.group_name:
+                    print("direct")
                     
                     # Send the message
-                    msg = input("Message: ")
+ 
                     Send.send_direct(self.username, self.recipient, self.contacts, msg, self.s)
 
-                elif (message_type == "group"):
-                    # Get user input for group or not
-                    is_new = False
-                    inp = input("Start a new group chat or chat with existing group chat? ")
-                    if (inp == "new" or "0"):
-                        is_new = True
-                    elif (inp == "existing" or "1"):
-                        is_new = False
-                    else: 
-                        print("Please type new or existing.")
-                
-                    # Check if the group is new
-                    if (is_new):
-                        group = input("Type in the members separated with a comma: ")
-                        
-                        #TODO: A check for if these are valid group members?? 
-                        self.group_members = group.split(',')
+                elif self.group_name:
+                    print("group")
 
-                    # The group already exists
-                    else:
-                        group = input("Enter group name: ")
-                        if not group in self.groups:
-                            print("The group was not found")
-                        else:
-                            self.group_name = group
-                            self.group_members = self.groups[group]["members"]
+                    for recipient in self.group_members:
+                        Send.send_group_message(msg, self.username, recipient, self.group_name, self.s, self.group_members, self.groups)
 
-                    if (self.group_name not in self.groups):
-                        self.group_name = input("What would you like to name the group? ")
-                        # Send a handshake to each member in the group
-                        for recipient in self.group_members:
-                            self.populate_public_keys(recipient)
-                            keys = Send.send_group_handshake(self.username, recipient, self.group_members, self.s, self.private_key, self.contacts[recipient]["public_key"])
-                            self.groups[self.group_name] = keys
-                    else:
-                        msg = input("Message: ")
-                        for recipient in self.group_members:
-                            Send.send_group_message(msg, self.username, recipient, self.group_name, self.s, self.group_members, self.groups)
-                else: 
-                    print("Enter valid response: group or direct")
+                else:
+                    print("hi")
+                    print(bool(self.recipient), bool(self.group_name))
+                    self.choose_send()
 
     def handle_receive(self):
         while True:
