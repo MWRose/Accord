@@ -27,28 +27,7 @@ class Client:
         self.public_keys = {}      # Public keys for other clients
         self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
         self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
-        self.username = input("Enter email: ") # Username of this client
-        
-
-        
-        Database.initialize_database()
-        # Sign in to existing account
-        if (Database.check_email(username)):
-            self.password = input("Enter your password: ")
-            if (Database.check_password(self.username, self.password)):
-                # Correct password
-                # TODO: continue
-                continue
-        # Create new account 
-        else: 
-            self.password = input("Create new password: ")
-            if (PasswordChecker(self.password).password_checker()):
-                # Save new password
-                Database.add_user_info(self.username, self.password)
-            else: 
-                print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
-
-
+        self.username = input("Enter username: ") # Username of this client
 
         # TODO Establish public and private keys
         Gen.generate_key_pair(self.username)
@@ -56,6 +35,36 @@ class Client:
         
         self.populate_private_key()
         self.create_connection()
+
+        # self.username = input("Enter email: ") # Username of this client
+        
+
+        
+        # Database.initialize_database()
+        # # Sign in to existing account
+        # if (Database.check_email(self.username)):
+        #    self.password = input("Enter your password: ")
+        # #    if (Database.check_password(self.username, self.password)):
+        # #         # Correct password
+        # #         # TODO: continue
+        # #         continue
+        # # Create new account 
+        # #else: 
+        #     self.password = input("Create new password: ")
+        #     if (PasswordChecker(self.password).password_checker()):
+        #         # Save new password
+        #         Database.add_user_info(self.username, self.password)
+        #     else: 
+        #         print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
+
+
+
+        # # TODO Establish public and private keys
+        # Gen.generate_key_pair(self.username)
+
+        
+        # self.populate_private_key()
+        # self.create_connection()
 
     def create_connection(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -129,22 +138,24 @@ class Client:
 
     def handle_send(self):
         while True:
-            if not self.recipient or not self.receive_group:
+            if not self.recipient or not self.group_name:
                 message_type = input("group or direct? ")
                 if (message_type == "direct"):
                     self.recipient = input("Recipient: ")
                     self.populate_public_keys(self.recipient)
-                    if (recipient not in self.contacts or "aes_key" not in self.contacts[recipient]):
+                    if (self.recipient not in self.contacts or "aes_key" not in self.contacts[self.recipient]):
                         # keys = {"aes": ..., "hmac": ...}
                         keys = Send.send_direct_handshake(self.username, self.recipient, self.s, self.private_key, self.contacts[self.recipient]["public_key"])
-                        self.contacts[recipient] = {
+                        self.contacts[self.recipient] = {
                             "aes": keys["aes"],
                             "hmac": keys["hmac"],
-                            "public_key": self.contacts[recipient]["public_key"]
+                            "public_key": self.contacts[self.recipient]["public_key"]
                         }
+                        msg = input("Message: ")
+                        Send.send_direct(self.recipient, self.contacts, msg, self.s)
                     else:
                         msg = input("Message: ")
-                        Send.send_direct(self.recipient, self.contacts, message, self.s)
+                        Send.send_direct(self.recipient, self.contacts, msg, self.s)
 
                 elif (message_type == "group"):
                     # Get user input for group or not
@@ -221,12 +232,13 @@ class Client:
                 hmac_key = keys["hmac"]
 
                 # This will add or overwrite two fields to the requester's contact, leaving the others
-                self.contacts[requester]{"aes_key"} = keys["aes"]
-                self.contacts[requester]{"hmac_key"} = keys["hmac"]
+                self.contacts[requester]["aes_key"] = keys["aes"]
+                self.contacts[requester]["hmac_key"] = keys["hmac"]
 
     def populate_public_keys(self, user_name: str):
         with open('public_{}.pem'.format(user_name), 'rb') as public:
-            self.public_keys[user_name] = public.read() # This is still a string
+            self.contacts[user_name] = dict()
+            self.contacts[user_name]["public_key"] = public.read() # This is still a string
 
     def populate_private_key(self):
         f =  open('private_{}.pem'.format(self.username), 'rb')

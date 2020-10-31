@@ -1,5 +1,6 @@
 import Crypto_Functions
-
+import base64
+import Requests
 
 def receive_direct(data, contacts):
     '''Receiving direct private messages '''
@@ -54,30 +55,30 @@ def receive_group(data, groups):
 
 def receive_direct_handshake(data, contacts, sender_public_key, recipient_private_key):
     '''receiving direct private message handshake'''
-        sender = data["requester"]
-        encrypted_b64 = data["encrypted"]
-        signed_b64 = data["signed"]
+    sender = data["requester"]
+    encrypted_b64 = data["encrypted"]
+    signed_b64 = data["signed"]
 
-        encrypted = base64.b64decode(encrypted_b64.encode()[2:-1])
-        signed = base64.b64decode(signed_b64.encode()[2:-1])
+    encrypted = base64.b64decode(encrypted_b64.encode()[2:-1])
+    signed = base64.b64decode(signed_b64.encode()[2:-1])
 
-        signature_contents = (sender + recipient + str(encrypted_b64)).encode()
-        if not Crypto_Functions.rsa_check_sign(signature_contents, signed, sender_public_key):
-            print("Invalid signature")
-        else:
-             # Parse encrpyted message
-            decrypted_msg = Crypto_Functions.rsa_decrypt(encrypted, recipient_private_key)
-            decrypted_msg_split = decrypted_msg.split(",", 2)
+    signature_contents = (sender + recipient + str(encrypted_b64)).encode()
+    if not Crypto_Functions.rsa_check_sign(signature_contents, signed, sender_public_key):
+        print("Invalid signature")
+    else:
+            # Parse encrpyted message
+        decrypted_msg = Crypto_Functions.rsa_decrypt(encrypted, recipient_private_key)
+        decrypted_msg_split = decrypted_msg.split(",", 2)
 
-            # Check the contents of the sender and re
-            enc_sender = decrypted_msg_split[0]
-            enc_recipient = decrypted_msg_split[1]
+        # Check the contents of the sender and re
+        enc_sender = decrypted_msg_split[0]
+        enc_recipient = decrypted_msg_split[1]
 
-            key_b64 = decrypted_msg_split[2].encode()[2:-1]
-            key = base64.b64decode(key_b64)
+        key_b64 = decrypted_msg_split[2].encode()[2:-1]
+        key = base64.b64decode(key_b64)
 
-            # Transform key into two keys
-            aes_key, hmac_key = Crypto_Functions.hash_keys(key)
+        # Transform key into two keys
+        aes_key, hmac_key = Crypto_Functions.hash_keys(key)
     
     return {"aes":aes_key, "hmac": hmac_key}
 

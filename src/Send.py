@@ -1,6 +1,10 @@
-import Crypto_Functions    
-    
-def send_direct_handshake(sender, recipient, socket, sender_private_key, recipient_public_key):
+import Crypto_Functions
+import base64    
+import Requests
+import socket
+import sys
+
+def send_direct_handshake(sender, recipient, s, sender_private_key, recipient_public_key):
     # Message contents
     key = Crypto_Functions.generate_session_key()
 
@@ -19,11 +23,11 @@ def send_direct_handshake(sender, recipient, socket, sender_private_key, recipie
     aes_key, hmac_key = Crypto_Functions.hash_keys(key)
     
     request = Requests.initiate_direct_message(sender, recipient, str(encrypted_b64), str(signed_b64))
-    socket.send(request)
+    s.send(request)
     
     return {"aes": aes_key, "hmac": hmac_key}
 
-def send_group_handshake(sender, recipient, members, socket, sender_private_key, recipient_public_key):
+def send_group_handshake(sender, recipient, members, s, sender_private_key, recipient_public_key):
     # Message contents
     key = Crypto_Functions.generate_session_key()
 
@@ -42,19 +46,19 @@ def send_group_handshake(sender, recipient, members, socket, sender_private_key,
     aes_key, hmac_key = Crypto_Functions.hash_keys(key)
 
     request = Requests.initiate_group_chat(sender, ",".join(members), str(encrypted_b64), str(signed_b64))
-    socket.send(request)
+    s.send(request)
 
     return {"aes": aes_key, "hmac": hmac_key}
 
-# NOTE: Note used, can be deleted
-def send_group(group_names, recipient):
-    # Send a handshake to each member in the group
-    for recipient in group_names:
-    send_handshake(True)
-    recipient = ""
-    send_msg_group()
+# # NOTE: Note used, can be deleted
+# def send_group(group_names, recipient):
+#     # Send a handshake to each member in the group
+#     for recipient in group_names:
+#     send_handshake(True)
+#     recipient = ""
+#     send_msg_group()
 
-def send_group_message(message, sender, recipient, group_name, socket, group_members):
+def send_group_message(message, sender, recipient, group_name, s, group_members):
     # Get shared key
     aes_key = groups[group_name]["aes"]
     hmac_key = groups[group_name]["hmac"]
@@ -69,15 +73,15 @@ def send_group_message(message, sender, recipient, group_name, socket, group_mem
     enc_msg_b64 = base64.b64encode(enc_msg)
     iv_b64 = base64.b64encode(iv)
 
-    socket.send(Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), tag))
+    s.send(Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), tag))
 
-def send_direct(recipient, contacts, message, socket):
+def send_direct(sender, recipient, contacts, message, s):
     # Get shared key
     aes_key = contacts[recipient]["aes"]
     hmac_key = contacts[recipient]["hmac"]
 
     # Encrypt
-    enc_msg, iv = Crypto_Functions.aes_encrypt(msg, aes_key)
+    enc_msg, iv = Crypto_Functions.aes_encrypt(message, aes_key)
 
     # Create message tag on encypted data
     tag = Crypto_Functions.hmac(enc_msg, hmac_key)
@@ -86,4 +90,4 @@ def send_direct(recipient, contacts, message, socket):
     enc_msg_b64 = base64.b64encode(enc_msg)
     iv_b64 = base64.b64encode(iv)
 
-    socket.send(Requests.message(username, recipient, str(enc_msg_b64), str(iv_b64), tag))
+    s.send(Requests.direct_message(sender, recipient, str(enc_msg_b64), str(iv_b64), tag))
