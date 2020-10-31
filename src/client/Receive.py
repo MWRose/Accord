@@ -52,26 +52,21 @@ def receive_group(data, groups):
 
     return sender + " to " + data["group_name"] + ": " + decrypted_msg
 
-def receive_direct_handshake(data, username, contacts, private_key):
+def receive_direct_handshake(data, contacts, sender_public_key, recipient_private_key):
     '''receiving direct private message handshake'''
-    if (is_group and self.username in data["recipients"].split(",")) or self.username == data["recipient"]:
-
-        # Parsed message contents
-        requester = data["requester"]
+        sender = data["requester"]
         encrypted_b64 = data["encrypted"]
         signed_b64 = data["signed"]
+
         encrypted = base64.b64decode(encrypted_b64.encode()[2:-1])
         signed = base64.b64decode(signed_b64.encode()[2:-1])
 
-        # Check the signature
-        recipient = data["recipients"] if is_group else data["recipient"]
-        signature_contents = (requester + recipient + str(encrypted_b64)).encode()
-        if not Crypto_Functions.rsa_check_sign(signature_contents, signed, contacts[requester]["public_key"]):
+        signature_contents = (sender + recipient + str(encrypted_b64)).encode()
+        if not Crypto_Functions.rsa_check_sign(signature_contents, signed, sender_public_key):
             print("Invalid signature")
         else:
-
-            # Parse encrpyted message
-            decrypted_msg = Crypto_Functions.rsa_decrypt(encrypted, private_key)
+             # Parse encrpyted message
+            decrypted_msg = Crypto_Functions.rsa_decrypt(encrypted, recipient_private_key)
             decrypted_msg_split = decrypted_msg.split(",", 2)
 
             # Check the contents of the sender and re
@@ -83,18 +78,13 @@ def receive_direct_handshake(data, username, contacts, private_key):
 
             # Transform key into two keys
             aes_key, hmac_key = Crypto_Functions.hash_keys(key)
-
-            return {"requester": requester, "aes":aes_key, "hmac": hmac_key}
-
-    else:
-        print("User doesn't match intended recipient")
     
-    return {}
+    return {"aes":aes_key, "hmac": hmac_key}
 
 
-def receive_group_handshake(data, username, groups, private_key):
+def receive_group_handshake(data,sender,groups,private_key):
     '''receiving handshake from group message'''
-    if (is_group and username in data["recipients"].split(",")) or username == data["recipient"]:
+    if (sender in data["recipients"].split(",")) or sender == data["recipient"]:
         # Parsed message contents
         requester = data["requester"]
         encrypted_b64 = data["encrypted"]

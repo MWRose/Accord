@@ -21,8 +21,8 @@ class Client:
 
 
         self.recipient = ""        # Direct message recipient
-        self.recipient_group = ""  # Group message name
-        self.group_names = []      # Names of members of the group
+        self.group_name = ""  # Group message name
+        self.group_members = []      # Names of members of the group
         self.private_key = ""      # Private key for the client
         self.public_keys = {}      # Public keys for other clients
         self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
@@ -90,7 +90,7 @@ class Client:
 
         if (message_type == "direct"):
             self.recipient = input("Recipient: ")
-            self.recipient_group = ""
+            self.group_name = ""
             self.populate_public_keys(self.recipient)
             self.send_direct()
 
@@ -113,7 +113,7 @@ class Client:
                 group = input("Type in the members separated with a comma: ")
                 
                 #TODO: A check for if these are valid group members?? 
-                self.group_names = group.split(',')
+                self.group_members = group.split(',')
 
             # The group already exists
             else:
@@ -121,8 +121,8 @@ class Client:
                 if not group in groups:
                     print("The group was not found")
                 else:
-                    self.recipient_group = group
-                    self.group_names = groups[group]["members"]
+                    self.group_name = group
+                    self.group_members = groups[group]["members"]
 
             self.send_group()
 
@@ -144,7 +144,7 @@ class Client:
                         }
                     else:
                         msg = input("Message: ")
-                        Send.send_direct(self.recipient, self.contacts, message)
+                        Send.send_direct(self.recipient, self.contacts, message, self.s)
 
                 elif (message_type == "group"):
                     # Get user input for group or not
@@ -162,7 +162,7 @@ class Client:
                         group = input("Type in the members separated with a comma: ")
                         
                         #TODO: A check for if these are valid group members?? 
-                        self.group_names = group.split(',')
+                        self.group_members = group.split(',')
 
                     # The group already exists
                     else:
@@ -170,19 +170,20 @@ class Client:
                         if not group in groups:
                             print("The group was not found")
                         else:
-                            self.recipient_group = group
-                            self.group_names = groups[group]["members"]
+                            self.group_name = group
+                            self.group_members = groups[group]["members"]
 
-                    if (self.recipient_group not in self.groups):
-                        self.recipient_group = input("What would you like to name the group? ")
+                    if (self.group_name not in self.groups):
+                        self.group_name = input("What would you like to name the group? ")
                         # Send a handshake to each member in the group
-                        for recipient in self.group_names:
+                        for recipient in self.group_members:
                             self.populate_public_keys(recipient)
-                            # TODO Pavle continue here
-                            Send.send_group_handshake(self.username, recipient, )
+                            keys = Send.send_group_handshake(self.username, recipient, self.group_members, self.s, self.private_key, self.contacts[recipient]["public_key"])
+                            self.groups[group_name] = keys
                     else:
                         msg = input("Message: ")
-                        Send.self.send_group(msg, self.username, self.recipient_group)
+                        for recipient in self.group_members:
+                            Send.send_group_message(msg, self.username, recipient, self.group_name, self.s, self.group_members)
                 else: 
                     print("Enter valid response: group or direct")
 
@@ -212,10 +213,12 @@ class Client:
                 self.groups[group_name] = {"aes_key": aes_key, "hmac_key": hmac_key, "members": members}
 
             elif request.is_initiate_direct_message():
-                keys = Receive.receive_direct_handshake(request.data, self.username, self.contacts, self.private_key)
+                requester = data["requester"]
+                if requester not in self.public_keys:
+                    self.populate_public_keys(requester)
+                keys = Receive.receive_direct_handshake(request.data, self.username, self.contacts, self.public_keys[requester], self.private_key)
                 aes_key = keys["aes"]
                 hmac_key = keys["hmac"]
-                requester = keys["requester"]
 
                 # This will add or overwrite two fields to the requester's contact, leaving the others
                 self.contacts[requester]{"aes_key"} = keys["aes"]
