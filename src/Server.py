@@ -96,12 +96,12 @@ class Server:
                 self.clients[recipient].send(data)
         elif request.is_initiate_group_chat():
             recipients = request.data["recipients"].split(",")
+            recipient = request.data["recipient"]
             sender = request.data["requester"]
-            for recipient in recipients:
-                # Skip sending back the handshake to the original sender in the group
-                # message handshake 
-                if recipient in self.clients and not (sender == recipient):
-                    self.clients[recipient].send(data)
+            # Skip sending back the handshake to the original sender in the group
+            # message handshake 
+            if recipient in self.clients and not (sender == recipient):
+                self.clients[recipient].send(data)
         # Existing direct message
         elif request.is_direct_message():
             recipient = request.data["recipient"]

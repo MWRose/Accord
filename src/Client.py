@@ -114,36 +114,60 @@ class Client:
                 self.contacts[self.recipient]["hmac_key"] = keys["hmac"]
             
             
-        #TODO: Clean up this logic
+        #TODO: Clean up this logic, need to check if it's existing
         elif (message_type == "group"):
             self.recipient = ""
+            
 
-            # Check if the group is new
-            if inp == "new" or "0":
-                group = input("Type in the members separated with a comma: ")
-                
-                #TODO: A check for if these are valid group members?? 
-                self.group_members = group.split(',')
+            while True:
 
-            # The group already exists
-            elif inp == "existing" or "1":
-                group = input("Enter group name: ")
-                if not group in self.groups:
-                    print("The group was not found")
+                inp = input("new or existing? ")
+                # Check if the group is new
+                if inp == "new" or inp == "0":
+
+                    # Get group name and members
+                    group = input("Type in the members separated with a comma: ")
+                    self.group_name = input("What would you like to name the group? ")
+                    self.group_members = group.split(',')
+                    break
+                    
+
+                # The group already exists
+                elif inp == "existing" or inp == "1":
+                    group = input("Enter group name: ")
+
+                    if not group in self.groups:
+                        print("The group was not found")
+
+                    else:
+
+                        # Get group name and members
+                        self.group_name = group
+                        self.group_members = self.groups[group]["members"]
+                        break
+
                 else:
-                    self.group_name = group
-                    self.group_members = self.groups[group]["members"]
+                    print("Please type new or existing.")
 
-            else:
-                print("Please type new or existing.")
 
             if (self.group_name not in self.groups):
-                self.group_name = input("What would you like to name the group? ")
+
+                # Initialize the group dict
+                self.groups[self.group_name] = {}
+                self.groups[self.group_name]["members"] = self.group_members
+
                 # Send a handshake to each member in the group
+                key = Crypto_Functions.generate_session_key()
                 for recipient in self.group_members:
-                    self.populate_public_keys(recipient)
-                    keys = Send.send_group_handshake(self.username, recipient, self.group_members, self.s, self.private_key, self.contacts[recipient]["public_key"])
-                    self.groups[self.group_name] = keys
+                    
+                    # Make sure we have a public key
+                    if recipient not in self.contacts.keys():
+                        self.populate_public_keys(recipient)
+
+                    keys = Send.send_group_handshake(self.username, recipient, self.group_members, self.s, self.private_key, self.contacts[recipient]["public_key"], key, self.group_name)
+                    # TODO: Probably don't need to reassign as it should be the same
+                    self.groups[self.group_name]["aes_key"] = keys["aes"]
+                    self.groups[self.group_name]["hmac_key"] = keys["hmac"]
           
         else: 
             print("Enter valid response: group or direct")
@@ -151,32 +175,25 @@ class Client:
 
     def handle_send(self):
         while True:
-            print(self.recipient, self.group_name)
             if not self.recipient and not self.group_name:
                 self.choose_send()
 
             else:
 
                 msg = input("Message: ")
-                print("hello")
                 if msg.lower() == "choose" or msg.lower() == "change":
                     self.choose_send()
 
                 if self.recipient and not self.group_name:
-                    print("direct")
                     
                     # Send the message
- 
                     Send.send_direct(self.username, self.recipient, self.contacts, msg, self.s)
 
                 elif self.group_name:
-                    print("group")
-
-                    for recipient in self.group_members:
-                        Send.send_group_message(msg, self.username, recipient, self.group_name, self.s, self.group_members, self.groups)
+                    Send.send_group_message(msg, self.username, self.group_name, self.s, self.group_members, self.groups)
 
                 else:
-                    print("hi")
+                    print("This should not print")
                     print(bool(self.recipient), bool(self.group_name))
                     self.choose_send()
 
@@ -196,7 +213,15 @@ class Client:
             # Initiate the group chat and save keys
             elif request.is_initiate_group_chat():
                 print("type is initiate group chat")
-                keys = Receive.receive_group_handshake(request.data, self.username, self.groups, self.private_key)
+
+                requester = request.data["requester"]
+                # Make sure we have the contact
+                if requester not in self.contacts or "public_key" not in self.contacts[requester].keys():
+  
+                    self.populate_public_keys(requester)
+
+                # Recieve the handshake
+                keys = Receive.receive_group_handshake(request.data, self.username, self.groups, self.contacts, self.private_key)
                 group_name = keys["group_name"]
                 aes_key = keys["aes"]
                 hmac_key = keys["hmac"]

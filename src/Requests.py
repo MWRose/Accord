@@ -38,7 +38,7 @@ class Request:
 
     def is_initiate_group_chat(self) -> bool:
         # TODO Format the line
-        return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_GROUP_CHAT and "recipients" in self.data
+        return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_GROUP_CHAT and "recipients" in self.data and "recipient" in self.data
 
     def is_broadcast(self) -> bool:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_BROADCAST and "message" in self.data
@@ -68,8 +68,8 @@ def initiate_direct_message(requester: str, recipient: str, encrypted: bytes, si
     values = [("requester", requester), ("recipient", recipient), ("encrypted", encrypted), ("signed", signed)]
     return create_request(REQUEST_KIND_INITIATE_DIRECT_MESSAGE, values)
 
-def initiate_group_chat(requester: str, recipients: str, encrypted: bytes, signed: bytes) -> bytes:
-    values = [("requester", requester), ("recipients", recipients), ("encrypted", encrypted), ("signed", signed)]
+def initiate_group_chat(requester: str, recipient: str, recipients: str, encrypted: bytes, signed: bytes, group_name) -> bytes:
+    values = [("requester", requester), ("recipient", recipient), ("recipients", recipients), ("encrypted", encrypted), ("signed", signed), ("group_name", group_name)]
     return create_request(REQUEST_KIND_INITIATE_GROUP_CHAT, values)
 
 def broadcast(message: str) -> bytes:

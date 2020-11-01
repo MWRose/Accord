@@ -27,13 +27,12 @@ def send_direct_handshake(sender, recipient, s, sender_private_key, recipient_pu
     
     return {"aes": aes_key, "hmac": hmac_key}
 
-def send_group_handshake(sender, recipient, members, s, sender_private_key, recipient_public_key):
+def send_group_handshake(sender, recipient, members, s, sender_private_key, recipient_public_key, key, group_name):
     # Message contents
-    key = Crypto_Functions.generate_session_key()
 
     # RSA encrypt the msg
     key_b64 = base64.b64encode(key)
-    encrypt_msg = sender + "," + recipient + "," + str(key_b64)
+    encrypt_msg = sender + "," + "_".join(members) + "," + str(key_b64)
     encrypted = Crypto_Functions.rsa_encrypt(encrypt_msg, recipient_public_key)
     encrypted_b64 = base64.b64encode(encrypted)
 
@@ -45,7 +44,7 @@ def send_group_handshake(sender, recipient, members, s, sender_private_key, reci
     # Transform key into two keys
     aes_key, hmac_key = Crypto_Functions.hash_keys(key)
 
-    request = Requests.initiate_group_chat(sender, ",".join(members), str(encrypted_b64), str(signed_b64))
+    request = Requests.initiate_group_chat(sender, recipient, ",".join(members), str(encrypted_b64), str(signed_b64), group_name)
     s.send(request)
 
     return {"aes": aes_key, "hmac": hmac_key}
@@ -58,7 +57,7 @@ def send_group_handshake(sender, recipient, members, s, sender_private_key, reci
 #     recipient = ""
 #     send_msg_group()
 
-def send_group_message(message, sender, recipient, group_name, s, group_members, groups):
+def send_group_message(message, sender, group_name, s, group_members, groups):
     # Get shared key
     aes_key = groups[group_name]["aes_key"]
     hmac_key = groups[group_name]["hmac_key"]
