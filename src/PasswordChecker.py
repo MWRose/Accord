@@ -4,16 +4,12 @@ class PasswordChecker:
     # handles threading of loading dictionaries 
     def __init__(self, password):
         self.password = password
-        load_black_list_handler = threading.Thread(target = self.load_black_list, args=())
-        load_black_list_handler.start()
-
-        password_checker_handler = threading.Thread(target = self.password_checker, args=())
-        password_checker_handler.start()
+        self.load_black_list()
 
     # loading black list of 100k common passwords
     def load_black_list(self):
         self.black_list_dict = {}
-        blacklist = open('common_passwords.txt', 'r')
+        blacklist = open('common_passwords.txt', 'r', encoding='utf8')
         lines = blacklist.readlines()
         for line in lines:
             self.black_list_dict[line.strip()] = 0 
@@ -46,13 +42,6 @@ class PasswordChecker:
     def is_pass_mixed(self, password): 
         return not(password.isalpha()) and not(password.isdecimal())
 
-    # checking if attempted password is in the english dictionary
-    def is_english_word(self, password):
-        if (self.d.check(password)):
-            return True
-        else: 
-            return False
-
     # checks if password satisfies the following password strength tests. criteria are as follows. 
     # -- Is more than 8 characters but no more than 64 
     # -- Contains a mix of letters and numbers 
@@ -69,3 +58,4 @@ class PasswordChecker:
 # main function for the executable
 if __name__ == "__main__":  
     passwordChecker = PasswordChecker("test1234")
+    print(passwordChecker.password_checker())

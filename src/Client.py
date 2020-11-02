@@ -8,7 +8,7 @@ import Requests
 import base64
 import Gen
 import Database
-import PasswordChecker
+from PasswordChecker import PasswordChecker 
 
 # Argument: IP address, port number
 # Can run this multiple times for multiple different users
@@ -19,7 +19,6 @@ class Client:
         print (f.renderText("Welcome to ACCORD"))
         print ("Chat away!")
 
-
         self.recipient = ""        # Direct message recipient
         self.group_name = ""       # Group message name
         self.group_members = []    # Names of members of the group
@@ -27,44 +26,30 @@ class Client:
         self.public_keys = {}      # Public keys for other clients TODO: Remove
         self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
         self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
-        self.username = input("Enter username: ") # Username of this client
-
-        # TODO Establish public and private keys
-        Gen.generate_key_pair(self.username)
-
+        self.username = input("Enter email: ") # Username of this client
         
-        self.populate_private_key()
-        self.create_connection()
-
-        # self.username = input("Enter email: ") # Username of this client
+        Database.initialize_database()
         
-
-        
-        # Database.initialize_database()
-        # # Sign in to existing account
-        # if (Database.check_email(self.username)):
-        #    self.password = input("Enter your password: ")
-        # #    if (Database.check_password(self.username, self.password)):
-        # #         # Correct password
-        # #         # TODO: continue
-        # #         continue
-        # # Create new account 
-        # #else: 
-        #     self.password = input("Create new password: ")
-        #     if (PasswordChecker(self.password).password_checker()):
-        #         # Save new password
-        #         Database.add_user_info(self.username, self.password)
-        #     else: 
-        #         print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
-
-
-
-        # # TODO Establish public and private keys
-        # Gen.generate_key_pair(self.username)
-
-        
-        # self.populate_private_key()
-        # self.create_connection()
+        # Sign in to existing account
+        if (Database.check_email(self.username)):
+           self.password = input("Enter your password: ")
+           if (Database.check_password(self.username, self.password)):
+            #    Gen.generate_key_pair(self.username)
+            #    self.populate_private_key()
+               self.create_connection()
+        else:             
+            strong_password = False
+            while not strong_password:
+                self.password = input("Create new password: ")
+                passwordChecker = PasswordChecker(self.password)
+                if(passwordChecker.password_checker()):
+                    Database.add_user_info(self.username, self.password)
+                    Gen.generate_key_pair(self.username)
+                    self.populate_private_key()
+                    self.create_connection()
+                    strong_password = True
+                else: 
+                    print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
 
     def create_connection(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
