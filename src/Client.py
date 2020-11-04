@@ -26,10 +26,15 @@ class Client:
         self.public_keys = {}      # Public keys for other clients TODO: Remove
         self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
         self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
-        self.username = input("Enter email: ") # Username of this client
+        #self.username = input("Enter email: ") # Username of this client
         
-        Database.initialize_database()
-        
+        Database.initialize_database() # initializes the database w/username, public key, signatures
+        if login_username()
+
+
+        create_account() # start account creation
+
+        '''
         # Sign in to existing account
         if (Database.check_email(self.username)):
            self.password = input("Enter your password: ")
@@ -50,6 +55,31 @@ class Client:
                     strong_password = True
                 else: 
                     print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
+    '''
+
+    def create_account(self):
+        username_exists = False 
+        while not username_exists:
+            self.username = input("Enter email: ")
+            if(check_user(username)):
+                print("Valid Username.")
+                username_exists = True
+            else:
+                print("Username already exists in the system.")
+
+        strong_password = False
+        while not strong_password:
+            self.password = input("Create new password: ")
+            passwordChecker = PasswordChecker(self.password)
+            if(passwordChecker.password_checker()):
+                #Database.add_user_info(self.username, self.password)
+                Gen.generate_key_pair(self.username)
+                self.populate_private_key()
+                #elf.create_connection()
+                strong_password = True
+            else: 
+                print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
+
 
     def create_connection(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -76,6 +106,17 @@ class Client:
 
         receive_handler = threading.Thread(target=self.handle_receive,args=())
         receive_handler.start()
+
+
+    # def account_create(self):
+        
+    #     username = input("Please enter your username: ")
+
+    #     # Check password
+    #     while True:
+    #         password = input("Please enter your password: ")
+    #         pass_check = new
+
 
 
     def choose_send(self):

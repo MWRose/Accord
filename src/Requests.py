@@ -40,8 +40,11 @@ class Request:
         # TODO Format the line
         return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_GROUP_CHAT and "recipients" in self.data and "recipient" in self.data
 
-    def is_broadcast(self) -> bool:
-        return self.is_valid() and self.data["kind"] == REQUEST_KIND_BROADCAST and "message" in self.data
+    def is_ca_request(self) -> bool:
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE
+
+    def is_ca_response(self) -> bool:
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE
 
 def create_request(kind: str, values: List[Tuple[str, str]]) -> bytes:
     data = {
@@ -72,9 +75,13 @@ def initiate_group_chat(requester: str, recipient: str, recipients: str, encrypt
     values = [("requester", requester), ("recipient", recipient), ("recipients", recipients), ("encrypted", encrypted), ("signed", signed), ("group_name", group_name)]
     return create_request(REQUEST_KIND_INITIATE_GROUP_CHAT, values)
 
-def broadcast(message: str) -> bytes:
-    values = [("message", message)]
-    return create_request(REQUEST_KIND_BROADCAST, values)
+def ca_request(username: string, public_key: bytes) -> bytes:
+    values = [("username", username), ("public_key", public_key)]
+    return create_request(REQUEST_KIND_CA_REQUEST, values)
+
+def ca_response(username: string, public_key: bytes, signature: bytes) -> bytes:
+    values = [("username", username), ("public_key", public_key), ("signature", signature)]
+    return create_request(REQUEST_KIND_CA_RESPONSE, values)
 
 def parse_request(request: bytes) -> Request:
     try:
