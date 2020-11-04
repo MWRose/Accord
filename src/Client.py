@@ -28,7 +28,7 @@ class Client:
         self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
         #self.username = input("Enter email: ") # Username of this client
         
-        Database.initialize_database() # initializes the database w/username, public key, signatures
+        Database.initialize_contacts_database() # initializes the database w/username, public key, signatures
         if login_username()
 
 
