@@ -29,10 +29,8 @@ class Client:
         #self.username = input("Enter email: ") # Username of this client
         
         Database.initialize_contacts_database() # initializes the database w/username, public key, signatures
-        if login_username()
 
-
-        create_account() # start account creation
+        self.create_connection()
 
         '''
         # Sign in to existing account
@@ -57,28 +55,68 @@ class Client:
                     print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
     '''
 
-    def create_account(self):
-        username_exists = False 
-        while not username_exists:
-            self.username = input("Enter email: ")
-            if(check_user(username)):
-                print("Valid Username.")
-                username_exists = True
-            else:
-                print("Username already exists in the system.")
+    def authenticate(self):
+        choice = input("Login or signup: ")
+        if choice == "login":
+            self.login()
+        else:
+            self.create_account()
 
+    def create_account(self):
+        valid_username = False 
+        while not valid_username:
+            self.username = input("Enter email: ")
+            if(Database.check_user(self.username)):
+                print("Username already exists in the system.")
+            else:
+                valid_username = True
+                
         strong_password = False
         while not strong_password:
             self.password = input("Create new password: ")
             passwordChecker = PasswordChecker(self.password)
             if(passwordChecker.password_checker()):
+                strong_password = True
+
                 #Database.add_user_info(self.username, self.password)
                 Gen.generate_key_pair(self.username)
+                
+                # Get user's public key
+                f =  open('public_{}.pem'.format(self.username), 'rb')
+                public_key = f.read()
+                f.close()
+                
+                # Get user's private key
                 self.populate_private_key()
-                #elf.create_connection()
-                strong_password = True
+                
+                # Get CA public key
+                f = open('public_ca.pem', 'rb')
+                ca_public_key = f.read()
+                f.close()
+
+                # Construct a message for CA
+                message = self.username + public_key
+                message_b64 = base64.b64encode(message)
+                encrypted = Crypto_Functions.rsa_encrypt(message_b64, ca_public_key)
+                encrypted_b64 = base64.b64encode(encrypted)
+
+                # Create a signature for the message contents
+                signature = (self.username + public_key + str(encrypted_b64)).encode()
+                signed = Crypto_Functions.rsa_sign(signature, ca_public_key)
+                signed_b64 = base64.b64encode(signed)
+
+                request = Requests.ca_request(encrypted, signature)
+                self.s.send(request)
+
+                while True:
+                    data = self.s.recv(2048)
+                    request = Requests.parse_request(data)
+                    # TODO: Server sends back whether account was sucessfully created or not
+                    # TODO: Grab a private key/encrypted user info from the server
             else: 
                 print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
+
+    def login(self):
 
 
     def create_connection(self):
@@ -98,7 +136,7 @@ class Client:
             print("Couldn't connect to server, please type in valid host name and port.")
             sys.exit(0)
 
-        self.s.send(Requests.login(self.username))
+        self.authenticate()
         
         # Handles threading of sending and receiving messages for a client
         send_handler = threading.Thread(target=self.handle_send, args=())

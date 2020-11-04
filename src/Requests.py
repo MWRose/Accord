@@ -1,12 +1,13 @@
 import json
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Sequence
 
 REQUEST_KIND_DIRECT_MESSAGE = "direct_message"
 REQUEST_KIND_GROUP_MESSAGE = "group_message"
 REQUEST_KIND_LOGIN = "login"
 REQUEST_KIND_INITIATE_DIRECT_MESSAGE = "initiate_direct"
 REQUEST_KIND_INITIATE_GROUP_CHAT = "initiate_group"
-REQUEST_KIND_BROADCAST = "broadcast"
+REQUEST_KIND_CA_REQUEST = "ca_request"
+REQUEST_KIND_CA_RESPONSE = "ca_response"
 
 class Request:
     def __init__(self, data: Dict):
@@ -41,12 +42,12 @@ class Request:
         return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_GROUP_CHAT and "recipients" in self.data and "recipient" in self.data
 
     def is_ca_request(self) -> bool:
-        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_REQUEST and "encrypted" in self.data and "signature" in self.data
 
     def is_ca_response(self) -> bool:
-        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE and "username" in self.data and "public_key" in self.data and "signature" in self.data
 
-def create_request(kind: str, values: List[Tuple[str, str]]) -> bytes:
+def create_request(kind: str, values: Sequence[Tuple[str, object]]) -> bytes:
     data = {
         "kind": kind
     }
@@ -75,11 +76,11 @@ def initiate_group_chat(requester: str, recipient: str, recipients: str, encrypt
     values = [("requester", requester), ("recipient", recipient), ("recipients", recipients), ("encrypted", encrypted), ("signed", signed), ("group_name", group_name)]
     return create_request(REQUEST_KIND_INITIATE_GROUP_CHAT, values)
 
-def ca_request(username: string, public_key: bytes) -> bytes:
-    values = [("username", username), ("public_key", public_key)]
+def ca_request(encrypted: bytes, signature: bytes) -> bytes:
+    values = [("encrypted", encrypted), ("signature", signature)]
     return create_request(REQUEST_KIND_CA_REQUEST, values)
 
-def ca_response(username: string, public_key: bytes, signature: bytes) -> bytes:
+def ca_response(username: str, public_key: str, signature: bytes) -> bytes:
     values = [("username", username), ("public_key", public_key), ("signature", signature)]
     return create_request(REQUEST_KIND_CA_RESPONSE, values)
 
