@@ -8,6 +8,8 @@ REQUEST_KIND_INITIATE_DIRECT_MESSAGE = "initiate_direct"
 REQUEST_KIND_INITIATE_GROUP_CHAT = "initiate_group"
 REQUEST_KIND_CA_REQUEST = "ca_request"
 REQUEST_KIND_CA_RESPONSE = "ca_response"
+REQUEST_KIND_LOGIN_REQUEST = "login_request"
+REQUEST_KIND_LOGIN_RESPONSE = "login_response"
 
 class Request:
     def __init__(self, data: Dict):
@@ -47,6 +49,12 @@ class Request:
     def is_ca_response(self) -> bool:
         return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE and "username" in self.data and "public_key" in self.data and "signature" in self.data
 
+    def is_login_request(self) -> bool:
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_LOGIN_REQUEST and "username" in self.data
+
+    def is_login_response(self) -> bool:
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_LOGIN_RESPONSE
+
 def create_request(kind: str, values: Sequence[Tuple[str, object]]) -> bytes:
     data = {
         "kind": kind
@@ -83,6 +91,17 @@ def ca_request(encrypted: bytes, signature: bytes) -> bytes:
 def ca_response(username: str, public_key: str, signature: bytes) -> bytes:
     values = [("username", username), ("public_key", public_key), ("signature", signature)]
     return create_request(REQUEST_KIND_CA_RESPONSE, values)
+
+def login_request(username: str) -> bytes:
+    values = [("username", username)]
+    return create_request(REQUEST_KIND_LOGIN_REQUEST, values)
+
+def login_response():
+    #TODO: Respond with all login information
+    pass
+
+
+
 
 def parse_request(request: bytes) -> Request:
     try:

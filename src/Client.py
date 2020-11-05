@@ -89,7 +89,7 @@ class Client:
                 # Get user's private key
                 self.populate_private_key()
                 
-                # Get CA public key
+                # Get CA public key TODO: Make this a hardcoded static var
                 f = open('public_ca.pem', 'rb')
                 ca_public_key = f.read()
                 f.close()
@@ -101,7 +101,7 @@ class Client:
                 encrypted_b64 = base64.b64encode(encrypted)
 
                 # Create a signature for the message contents
-                signature = (self.username + public_key + str(encrypted_b64)).encode()
+                signature = (self.username + public_key + str(encrypted_b64)).encode() #TODO: I think we can just user the encryption
                 signed = Crypto_Functions.rsa_sign(signature, ca_public_key)
                 signed_b64 = base64.b64encode(signed)
 
@@ -116,7 +116,30 @@ class Client:
             else: 
                 print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
 
+
     def login(self):
+        self.username = input("Please enter username: ")
+        #TODO: Check if username exists in the database (this will probably need to be a send to server)
+
+        request = Requests.login_request(self.username)
+        self.s.send(request)
+
+        while True:
+            data = self.s.recv(2048)
+            request = Requests.parse_request(data)
+
+            # Wait for the login response
+            if request.is_login_response():
+                #TODO: Parse the response and populate the correct dictionaries
+
+            break
+
+        password = input("Please enter your password: ")
+        #TODO: Turn this password into a key
+
+
+    def sign_off(self):
+        pass
 
 
     def create_connection(self):
