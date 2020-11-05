@@ -116,7 +116,7 @@ def hmac(msg: bytes, hmac_key: bytes) -> bytes:
     return h.hexdigest()
 
 
-def check_hmac(msg: bytes, mac: bytes, hmac_key: bytes) -> bytes:
+def check_hmac(msg: bytes, mac: bytes, hmac_key: bytes) -> bool:
     """
     Takes a hmac_key and a mac and checks the msg tag
     :mac: A hexadecimal encoded tag
