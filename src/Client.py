@@ -26,7 +26,9 @@ class Client:
         self.public_keys = {}      # Public keys for other clients TODO: Remove
         self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
         self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
-        #self.username = input("Enter email: ") # Username of this client
+        self.username = "" # Username of this client
+        self.loggedin = False
+        self.ca_public_key = ""
         
         Database.initialize_contacts_database() # initializes the database w/username, public key, signatures
 
@@ -53,6 +55,25 @@ class Client:
                     strong_password = True
                 else: 
                     print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
+    '''
+
+    '''
+    Users
+    -----
+    (pavle@pomona.edu, private_key)
+    
+    Contacts
+    --------
+    (username, contact, aes_key)
+
+    pavle@pomona.edu, asasdsdfgbsdsdfgfds
+    pavle@pomona.edu, asdsdasdasadds
+    pavle@pomona.edu, adwsasdasasdas
+    max@pomona.edu
+
+    Messages (pavle@)
+    --------
+    from, to, timestamp, message
     '''
 
     def authenticate(self):
@@ -91,28 +112,32 @@ class Client:
                 
                 # Get CA public key TODO: Make this a hardcoded static var
                 f = open('public_ca.pem', 'rb')
-                ca_public_key = f.read()
+                self.ca_public_key = f.read()
                 f.close()
 
                 # Construct a message for CA
-                message = self.username + public_key
+
+                message = self.username + "," + str(public_key)
                 message_b64 = base64.b64encode(message)
-                encrypted = Crypto_Functions.rsa_encrypt(message_b64, ca_public_key)
+                encrypted = Crypto_Functions.rsa_encrypt(message_b64, self.ca_public_key)
                 encrypted_b64 = base64.b64encode(encrypted)
 
                 # Create a signature for the message contents
-                signature = (self.username + public_key + str(encrypted_b64)).encode() #TODO: I think we can just user the encryption
-                signed = Crypto_Functions.rsa_sign(signature, ca_public_key)
+                signature = (str(encrypted_b64)).encode() #TODO: I think we can just user the encryption
+                signed = Crypto_Functions.rsa_sign(signature, self.ca_public_key)
                 signed_b64 = base64.b64encode(signed)
 
-                request = Requests.ca_request(encrypted, signature)
+                request = Requests.ca_request(encrypted, signature, self.username)
                 self.s.send(request)
 
                 while True:
                     data = self.s.recv(2048)
                     request = Requests.parse_request(data)
-                    # TODO: Server sends back whether account was sucessfully created or not
-                    # TODO: Grab a private key/encrypted user info from the server
+                    if request.account_created():
+                        key1, key2 = Crypto_Functions.hash_keys(self.password.encode())
+                        enc_msg, iv = Crypto_Functions.aes_encrypt(str(self.private_key))
+                        request = Requests.user_private_key()
+                        self.s.send()
             else: 
                 print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
 
@@ -136,6 +161,8 @@ class Client:
 
         password = input("Please enter your password: ")
         #TODO: Turn this password into a key
+
+        self.loggedin = True
 
 
     def sign_off(self):
@@ -330,10 +357,21 @@ class Client:
                 self.contacts[requester]["hmac_key"] = hmac_key
 
     def populate_public_keys(self, username: str):
-        with open('public_{}.pem'.format(username), 'rb') as public:
-            if username not in self.contacts:
-                self.contacts[username] = dict()
-            self.contacts[username]["public_key"] = public.read() # This is still a string
+        
+        # Get the public key from the data base
+        info = Database.get_user_info(username)
+        public_key = info["public_key"]
+        ca_signature = info["ca_signature"]
+
+        # Check the CA's signature
+        signature_contents = username + "," + str(public_key)
+        if not Crypto_Functions.rsa_check_sign(signature_contents, ca_signature, self.ca_public_key):
+            print("The requested public key and signature do not match for " + username)
+            return
+
+        if username not in self.contacts:
+            self.contacts[username] = dict()
+        self.contacts[username]["public_key"] = public_key
 
     def populate_private_key(self):
         f =  open('private_{}.pem'.format(self.username), 'rb')

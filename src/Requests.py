@@ -44,7 +44,7 @@ class Request:
         return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_GROUP_CHAT and "recipients" in self.data and "recipient" in self.data
 
     def is_ca_request(self) -> bool:
-        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_REQUEST and "encrypted" in self.data and "signature" in self.data
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_REQUEST and "encrypted" in self.data and "signature" in self.data and "username" in self.data
 
     def is_ca_response(self) -> bool:
         return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE and "username" in self.data and "public_key" in self.data and "signature" in self.data
@@ -84,8 +84,8 @@ def initiate_group_chat(requester: str, recipient: str, recipients: str, encrypt
     values = [("requester", requester), ("recipient", recipient), ("recipients", recipients), ("encrypted", encrypted), ("signed", signed), ("group_name", group_name)]
     return create_request(REQUEST_KIND_INITIATE_GROUP_CHAT, values)
 
-def ca_request(encrypted: bytes, signature: bytes) -> bytes:
-    values = [("encrypted", encrypted), ("signature", signature)]
+def ca_request(encrypted: bytes, signature: bytes, username: str) -> bytes:
+    values = [("encrypted", encrypted), ("signature", signature), ("username", username)]
     return create_request(REQUEST_KIND_CA_REQUEST, values)
 
 def ca_response(username: str, public_key: str, signature: bytes) -> bytes:

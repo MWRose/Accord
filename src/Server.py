@@ -3,6 +3,7 @@ import socket
 import threading
 from pyfiglet import Figlet
 import Requests
+import CA
 
 #importing database commands
 import Database
@@ -57,13 +58,26 @@ class Server:
 
             if request.is_login():
                 username = request.data["username"]
+                if username == "CA":
+                    self.clients["CA"] = c
+                else: 
+                    print("New connection. Username: " + str(username))
+                    self.broadcast(username + " has entered the chat.")
+                    self.clients[username] = c
+                    threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
+
+            if request.is_ca_request():
+                username = request.data["username"]
                 print("New connection. Username: " + str(username))
-
                 self.broadcast(username + " has entered the chat.")
-
                 self.clients[username] = c
-
                 threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
+
+                # Send to CA
+                threading.Thread(target=self.send_to_ca, args=(self, request)).start()
+
+    def send_to_ca(self, data): 
+        self.clients["CA"].send(data)
 
     def broadcast(self, msg):
         for connection in self.clients.values():
@@ -108,7 +122,7 @@ class Server:
             print("dm")
             print(self.clients)
             if recipient in self.clients: 
-                self.clients[recipient].send(data)
+                self.clients[recipisignatureent].send(data)
         # Existing group message
         elif request.is_group_message():
             members = request.data["members"].split(",")
@@ -117,6 +131,23 @@ class Server:
                 if member in self.clients:
                     if member != sender:
                         self.clients[member].send(data)
+        
+        # Client to CA
+        elif request.is_ca_request():
+            # Forward to CA
+            self.clients["CA"].send(request)
+
+        # CA to Server
+        elif request.is_ca_response():
+            
+            username = request.data["username"]
+            public_key = request.data["public_key"]
+            ca_signature = request.data["signature"]
+
+            if (Database.check_user(username)):
+                Database.add_user_info(username, public_key, ca_signature)
+
+            self.clients[username].send("Success. Account created.")
     
     def check_database(self,user):
         if Database.check_email(user):

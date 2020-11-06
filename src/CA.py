@@ -18,7 +18,9 @@ class CertAuth:
         # Load the public key for CA
         f =  open('public_ca.pem', 'rb')
         self.public_key = f.read()
-        f.close()    
+        f.close()
+
+        self.start_ca()
         
     def start_ca(self):   
         # Get command line arguments and check correctness
@@ -31,6 +33,10 @@ class CertAuth:
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.bind((server_hostname, server_port))
         self.s.listen(100)
+
+        setup_request = Requests.login_request("CA")
+        self.s.send(setup_request)
+        
         while True:
             # c, addr = self.s.accept()
 
@@ -51,8 +57,9 @@ class CertAuth:
         username, public_key = decrypt_ca_request(encrypted)
 
         # Check signature
-        message = username + "," + public_key
-        if check_signature(message, signature, public_key):
+        signature_contents = encrypted_b64
+        if check_signature(signature_contents, signature, public_key):
+            message = username + "," + str(public_key)
             ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
             ca_response = Requests.ca_response(username, public_key, ca_signature)
             print(ca_response)
@@ -62,8 +69,9 @@ class CertAuth:
 
     def decrypt_ca_request(self, encrypted: bytes):
         decrypted = Crypto_Functions.rsa_decrypt(encrypted, self.private_key)
-        username, password = decrypted.split(",")
-        return username, password
+        username, public_key_str = decrypted.split(",")
+        public_key = public_key_str.encode()[2:-1]
+        return username, public_key
 
 
     def check_signature(self, message, signature, public_key: str):
@@ -71,3 +79,4 @@ class CertAuth:
         return Crypto_Functions.rsa_check_sign(message, signature, public_key)
 
 
+e

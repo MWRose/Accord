@@ -10,7 +10,7 @@ from typing import Tuple
 
 
 def generate_session_key() -> bytes:
-    return get_random_bytes(16)
+    return get_random_bytes(16) #TODO: Use 32 bytes
 
 
 def aes_encrypt(msg_str: str, aes_key: bytes) -> Tuple[bytes, bytes]:
