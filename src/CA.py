@@ -27,20 +27,24 @@ class CertAuth:
         args = sys.argv
         if len(args) != 3:
             print("correct usage: python3 CA.py <server hostname> <server port>")
-        server_hostname = int(args[1])
+        server_hostname = args[1]
         server_port = int(args[2])
 
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.bind((server_hostname, server_port))
-        self.s.listen(100)
+        self.snd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.snd.connect((server_hostname, server_port))
+
+        hostname = socket.gethostbyname(socket.gethostname())
+        self.rec = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.rec.bind((hostname, 4747))
+        self.rec.listen(100)
 
         setup_request = Requests.login_request("CA")
-        self.s.send(setup_request)
+        self.snd.send(setup_request)
         
         while True:
-            # c, addr = self.s.accept()
+            c, addr = self.rec.accept()
 
-            data = self.s.recv(2048)
+            data = c.recv(2048)
             request = Requests.parse_request(data)
             if request.is_ca_request():
                 self.receive_request(request.data)
@@ -76,3 +80,5 @@ class CertAuth:
     def check_signature(self, message, signature, public_key: str):
         """ Takes a username and a public key and checks that the signature is correct """
         return Crypto_Functions.rsa_check_sign(message, signature, public_key)
+
+ca = CertAuth()

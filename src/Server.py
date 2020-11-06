@@ -3,7 +3,6 @@ import socket
 import threading
 from pyfiglet import Figlet
 import Requests
-import CA
 
 #importing database commands
 import Database
@@ -28,8 +27,6 @@ class Server:
         #     Database.initialize_database()
         # if is_database_logs_init:
         #     Database.initialize_log_database()
-
-
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -56,7 +53,7 @@ class Server:
 
             request = Requests.parse_request(data)
 
-            print(request)
+            print(request.data)
 
             if request.is_login():
                 username = request.data["username"]
@@ -75,21 +72,23 @@ class Server:
                 self.clients[username] = c
 
                 # Communicate with CA
-                threading.Thread(target=self.handle_ca, args=(self, request)).start()
+                threading.Thread(target=self.handle_ca, args=(c, request)).start()
 
+                # 
                 threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
 
 
-    def handle_ca(self, data):
+    def handle_ca(self, ca, data):
         self.clients["CA"].send(data)
 
         while True:
             try:
-                data = c.recv(2048)
+                data = ca.recv(2048)
             except:
                 "Connection with CA closed"
 
-            request = Requests.parse_request()
+            request = Requests.parse_request(data)
+            
             if request.is_ca_response():
                 username = request.data["username"]
                 public_key = request.data["public_key"]
@@ -97,12 +96,13 @@ class Server:
 
                 if (not Database.check_user(username)):
                     Database.add_user_info(username, public_key, ca_signature)
-
                 self.clients[username].send("Success. Account created.")
 
                 # TODO: Let the client know that they are signed up and logged in
 
                 break
+            else:
+                print("Waiting for a reponse from CA, but this is not a valid response")
             
 
     def broadcast(self, msg):

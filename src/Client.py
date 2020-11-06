@@ -118,8 +118,8 @@ class Client:
                 # Construct a message for CA
 
                 message = self.username + "," + str(public_key)
-                message_b64 = base64.b64encode(message)
-                encrypted = Crypto_Functions.rsa_encrypt(message_b64, self.ca_public_key)
+                message_b64 = base64.b64encode(message.encode())
+                encrypted = Crypto_Functions.rsa_encrypt(str(message_b64), self.ca_public_key)
                 encrypted_b64 = base64.b64encode(encrypted)
 
                 # Create a signature for the message contents
