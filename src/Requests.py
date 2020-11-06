@@ -100,7 +100,9 @@ def login_response():
     #TODO: Respond with all login information
     pass
 
-
+def broadcast(message: str) -> bytes:
+    values = [("message", message)]
+    return create_request(REQUEST_KIND_BROADCAST, values)
 
 
 def parse_request(request: bytes) -> Request:

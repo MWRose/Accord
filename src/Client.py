@@ -30,7 +30,7 @@ class Client:
         self.loggedin = False
         self.ca_public_key = ""
         
-        Database.initialize_contacts_database() # initializes the database w/username, public key, signatures
+        Database.initialize_username_database() # initializes the database w/username, public key, signatures
 
         self.create_connection()
 
@@ -156,7 +156,7 @@ class Client:
             # Wait for the login response
             if request.is_login_response():
                 #TODO: Parse the response and populate the correct dictionaries
-
+                print("todo")
             break
 
         password = input("Please enter your password: ")

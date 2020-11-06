@@ -56,6 +56,8 @@ class Server:
 
             request = Requests.parse_request(data)
 
+            print(request)
+
             if request.is_login():
                 username = request.data["username"]
                 if username == "CA":
@@ -71,13 +73,37 @@ class Server:
                 print("New connection. Username: " + str(username))
                 self.broadcast(username + " has entered the chat.")
                 self.clients[username] = c
+
+                # Communicate with CA
+                threading.Thread(target=self.handle_ca, args=(self, request)).start()
+
                 threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
 
-                # Send to CA
-                threading.Thread(target=self.send_to_ca, args=(self, request)).start()
 
-    def send_to_ca(self, data): 
+    def handle_ca(self, data):
         self.clients["CA"].send(data)
+
+        while True:
+            try:
+                data = c.recv(2048)
+            except:
+                "Connection with CA closed"
+
+            request = Requests.parse_request()
+            if request.is_ca_response():
+                username = request.data["username"]
+                public_key = request.data["public_key"]
+                ca_signature = request.data["signature"]
+
+                if (not Database.check_user(username)):
+                    Database.add_user_info(username, public_key, ca_signature)
+
+                self.clients[username].send("Success. Account created.")
+
+                # TODO: Let the client know that they are signed up and logged in
+
+                break
+            
 
     def broadcast(self, msg):
         for connection in self.clients.values():
@@ -122,7 +148,7 @@ class Server:
             print("dm")
             print(self.clients)
             if recipient in self.clients: 
-                self.clients[recipisignatureent].send(data)
+                self.clients[recipient].send(data)
         # Existing group message
         elif request.is_group_message():
             members = request.data["members"].split(",")
@@ -131,30 +157,13 @@ class Server:
                 if member in self.clients:
                     if member != sender:
                         self.clients[member].send(data)
-        
-        # Client to CA
-        elif request.is_ca_request():
-            # Forward to CA
-            self.clients["CA"].send(request)
-
-        # CA to Server
-        elif request.is_ca_response():
-            
-            username = request.data["username"]
-            public_key = request.data["public_key"]
-            ca_signature = request.data["signature"]
-
-            if (Database.check_user(username)):
-                Database.add_user_info(username, public_key, ca_signature)
-
-            self.clients[username].send("Success. Account created.")
     
-    def check_database(self,user):
-        if Database.check_email(user):
-            print("User :", user, "in Database")
-        else:
-            print("Adding User: ",user, "to the database" )
-            Database.add_user_email(user)
+    # def check_database(self,user):
+    #     if Database.check_user(user):
+    #         print("User :", user, "in Database")
+    #     else:
+    #         print("Adding User: ",user, "to the database" )
+    #         Database.add_user(user)
 
 
 server = Server()

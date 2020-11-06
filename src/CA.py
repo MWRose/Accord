@@ -9,7 +9,7 @@ import base64
 
 
 class CertAuth:
-     def __init__(self):
+    def __init__(self):
         # Load the private key for CA
         f =  open('private_ca.pem', 'rb')
         self.private_key = f.read()
@@ -54,18 +54,17 @@ class CertAuth:
         signature = base64.b64decode(signature_b64)
 
         # Decrypt encrypted using CA private key
-        username, public_key = decrypt_ca_request(encrypted)
+        username, public_key = self.decrypt_ca_request(encrypted)
 
         # Check signature
         signature_contents = encrypted_b64
-        if check_signature(signature_contents, signature, public_key):
+        if self.check_signature(signature_contents, signature, public_key):
             message = username + "," + str(public_key)
             ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
             ca_response = Requests.ca_response(username, public_key, ca_signature)
             print(ca_response)
         else:
             print("Signature not signed with the correct public key")
-
 
     def decrypt_ca_request(self, encrypted: bytes):
         decrypted = Crypto_Functions.rsa_decrypt(encrypted, self.private_key)
@@ -77,6 +76,3 @@ class CertAuth:
     def check_signature(self, message, signature, public_key: str):
         """ Takes a username and a public key and checks that the signature is correct """
         return Crypto_Functions.rsa_check_sign(message, signature, public_key)
-
-
-e
