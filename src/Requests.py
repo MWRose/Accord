@@ -84,8 +84,8 @@ def initiate_group_chat(requester: str, recipient: str, recipients: str, encrypt
     values = [("requester", requester), ("recipient", recipient), ("recipients", recipients), ("encrypted", encrypted), ("signed", signed), ("group_name", group_name)]
     return create_request(REQUEST_KIND_INITIATE_GROUP_CHAT, values)
 
-def ca_request(encrypted: bytes, signature: bytes, username: str) -> bytes:
-    values = [("encrypted", encrypted), ("signature", signature), ("username", username)]
+def ca_request(aes_key_encrypted: bytes, aes_key_signed: bytes, iv: bytes, encrypted: bytes, signature: bytes, username: str) -> bytes:
+    values = [("aes_key_encrypted", aes_key_encrypted), ("aes_key_signed", aes_key_signed), ("iv", iv), ("encrypted", encrypted), ("signature", signature), ("username", username)]
     return create_request(REQUEST_KIND_CA_REQUEST, values)
 
 def ca_response(username: str, public_key: str, signature: bytes) -> bytes:

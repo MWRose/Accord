@@ -51,18 +51,34 @@ class CertAuth:
                 
 
     def receive_request(self, data):
+        # aes key from client/server = b'\r\xea/%\xe1\x0f\xa8\xb0\xe8\x08\x0cR\xf2zh9'
+        # b'DeovJeEPqLDoCAxS8npoOQ=='
+
+        aes_key_encrypted_b64 = data["aes_key_encrypted"].encode()[2:-1]
+        aes_key_encrypted = base64.b64decode(aes_key_encrypted_b64)
+        aes_key_signature_b64 = data["aes_key_signed"].encode()[2:-1]
+        aes_key_signature = base64.b64decode(aes_key_signature_b64)
+
+        iv_b64 = data["iv"].encode()[2:-1]
+        iv = base64.b64decode(iv_b64)
 
         encrypted_b64 = data["encrypted"].encode()[2:-1]
         encrypted = base64.b64decode(encrypted_b64)
         signature_b64 = data["signature"].encode()[2:-1]
         signature = base64.b64decode(signature_b64)
 
-        # Decrypt encrypted using CA private key
-        username, public_key = self.decrypt_ca_request(encrypted)
+        aes_key = self.decrypt_ca_request_key(aes_key_encrypted)
+        
+        message_b64 = Crypto_Functions.aes_decrypt(encrypted, iv, aes_key).encode()[2:-1]
+
+        message = base64.b64decode(message_b64)
+        username, public_key = message.decode().split(",")
+        public_key = public_key.encode()[2:-1]
 
         # Check signature
         signature_contents = encrypted_b64
         if self.check_signature(signature_contents, signature, public_key):
+            print("valid")
             message = username + "," + str(public_key)
             ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
             ca_response = Requests.ca_response(username, public_key, ca_signature)
@@ -70,12 +86,10 @@ class CertAuth:
         else:
             print("Signature not signed with the correct public key")
 
-    def decrypt_ca_request(self, encrypted: bytes):
+    def decrypt_ca_request_key(self, encrypted: bytes):
         decrypted = Crypto_Functions.rsa_decrypt(encrypted, self.private_key)
-        username, public_key_str = decrypted.split(",")
-        public_key = public_key_str.encode()[2:-1]
-        return username, public_key
-
+        aes_key = decrypted.encode()[2:-1]
+        return base64.b64decode(aes_key)
 
     def check_signature(self, message, signature, public_key: str):
         """ Takes a username and a public key and checks that the signature is correct """

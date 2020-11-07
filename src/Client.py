@@ -29,6 +29,8 @@ class Client:
         self.username = "" # Username of this client
         self.loggedin = False
         self.ca_public_key = ""
+        self.password_aes = b""
+        self.password_hmac = b""
         
         Database.initialize_username_database() # initializes the database w/username, public key, signatures
 
@@ -116,23 +118,33 @@ class Client:
                 f.close()
 
                 # Construct a message for CA
+                aes_key = Crypto_Functions.generate_session_key()
+                aes_keyb64 = base64.b64encode(aes_key)
+                aes_key_encrypted = Crypto_Functions.rsa_encrypt(str(aes_keyb64), self.ca_public_key)
+                aes_key_encryptedb64 = base64.b64encode(aes_key_encrypted)
 
-                message = self.username + "," + str(public_key)
+                aes_key_signature = str(aes_key_encryptedb64).encode()
+                aes_key_signed = Crypto_Functions.rsa_sign(aes_key_signature, self.private_key)
+                aes_key_signedb64 = base64.b64encode(aes_key_signed)
+
+                message = self.username + "," + public_key.decode()
                 message_b64 = base64.b64encode(message.encode())
-                encrypted = Crypto_Functions.rsa_encrypt(str(message_b64), self.ca_public_key)
+                encrypted, iv = Crypto_Functions.aes_encrypt(str(message_b64), aes_key)
                 encrypted_b64 = base64.b64encode(encrypted)
+                iv_b64 = base64.b64encode(iv)
 
                 # Create a signature for the message contents
-                signature = (str(encrypted_b64)).encode() #TODO: I think we can just user the encryption
-                signed = Crypto_Functions.rsa_sign(signature, self.ca_public_key)
+                signature = str(encrypted_b64).encode()
+                signed = Crypto_Functions.rsa_sign(signature, self.private_key)
                 signed_b64 = base64.b64encode(signed)
 
-                request = Requests.ca_request(encrypted, signature, self.username)
+                request = Requests.ca_request(str(aes_key_encryptedb64), str(aes_key_signedb64), str(iv_b64), str(encrypted_b64), str(signed_b64), self.username)
                 self.s.send(request)
 
                 while True:
                     data = self.s.recv(2048)
                     request = Requests.parse_request(data)
+                    # TODO: This needs to be worked on
                     if request.account_created():
                         key1, key2 = Crypto_Functions.hash_keys(self.password.encode())
                         enc_msg, iv = Crypto_Functions.aes_encrypt(str(self.private_key))
@@ -146,21 +158,53 @@ class Client:
         self.username = input("Please enter username: ")
         #TODO: Check if username exists in the database (this will probably need to be a send to server)
 
-        request = Requests.login_request(self.username)
-        self.s.send(request)
+        # request = Requests.login_request(self.username)
+        # self.s.send(request)
 
-        while True:
-            data = self.s.recv(2048)
-            request = Requests.parse_request(data)
+        # while True:
+        #     data = self.s.recv(2048)
+        #     request = Requests.parse_request(data)
 
-            # Wait for the login response
-            if request.is_login_response():
-                #TODO: Parse the response and populate the correct dictionaries
-                print("todo")
-            break
+        #     # Wait for the login response
+        #     if request.is_login_response():
+        #         #TODO: Parse the response and populate the correct dictionaries
+        #         print("todo")
+        #     break
 
+
+        # Receive information that is stored in the database
+        contacts = Database.get_user_contact_info(self.username)
         password = input("Please enter your password: ")
-        #TODO: Turn this password into a key
+        self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
+
+        for contact in contacts:
+
+            # Get contact info
+            recipient = contact["contact"]
+            enc_aes_b64 = contact["contact_aes"].encode()[2:-1]
+            enc_aes = base64.b64decode(enc_aes_b64)
+            enc_hmac_b64 = contact["hmac_key"].encode()[2:-1]
+            enc_hmac = base64.b64decode(enc_hmac_b64)
+            signed_b64 = contact["signature"].encode()[2:-1]
+            signed = base64.b64decode(signed_b64)
+            iv_aes_b64 = contact["iv_aes"]
+            iv_aes = base64.b64decode(iv_aes_b64)
+            iv_hmac_b64 = contact["iv_hmac"]
+            iv_hmac = base64.b64decode(iv_hmac_b64)
+            
+            # Check signature
+            signature_contents = self.username + recipient + contact["enc_aes"] + contact["enc_hmac"] + contact["iv_aes"] + contact["iv_hmac"]
+            Crypto_Functions.check_hmac(signature_contents, signed, self.password_hmac)
+
+            # Decrypt keys
+            iv_aes.encode()[2:1]
+            aes_key = Crypto_Functions.aes_decrypt(enc_aes, iv_aes, self.password_aes)
+            hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
+
+            
+            self.contacts[recipient] = {"aes_key": aes_key, "hmac_key": hmac_key}
+
+            # TODO: Add functionality to save the public_keys in the future
 
         self.loggedin = True
 
@@ -226,6 +270,30 @@ class Client:
                 # Update recipient's keys
                 self.contacts[self.recipient]["aes_key"] = keys["aes"]
                 self.contacts[self.recipient]["hmac_key"] = keys["hmac"]
+
+                # Update the Database
+                email = self.username
+                contact = self.recipient
+
+                # Get encrypted aes under self.password_aes
+                contact_aes = base64.b64encode(["aes"])
+                enc_contact_aes, iv_aes = Crypto_Functions.aes_encrypt(str(contact_aes), self.password_aes)
+                enc_contact_aes = str(base64.b64encode(enc_contact_aes))
+                iv_aes = str(base64.b64encode(iv_aes))
+                
+                # Get encrypted hmac under self.password_aes
+                hmac_key = base64.b64encode(["hmac"])
+                enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(str(hmac_key), self.password_aes)
+                enc_hmac_key = str(base64.b64encode(enc_hmac_key))
+                iv_hmac = str(base64.b64encode(iv_hmac))
+
+                # Create the signature
+                signature_contents = contact + contact_aes + enc_hmac_key
+                
+
+
+
+                
             
             
         #TODO: Clean up this logic, need to check if it's existing
@@ -355,6 +423,9 @@ class Client:
                 # This will add or overwrite two fields to the requester's contact, leaving the others
                 self.contacts[requester]["aes_key"] = aes_key
                 self.contacts[requester]["hmac_key"] = hmac_key
+
+                # Update the database
+                # TODO
 
     def populate_public_keys(self, username: str):
         

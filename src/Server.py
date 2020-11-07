@@ -72,13 +72,13 @@ class Server:
                 self.clients[username] = c
 
                 # Communicate with CA
-                threading.Thread(target=self.handle_ca, args=(c, request)).start()
+                threading.Thread(target=self.handle_ca, args=(c,username,addr,request)).start()
+            # else: 
+            #     # Communicate with client
+            #     threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
 
-                # 
-                threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
 
-
-    def handle_ca(self, ca, data):
+    def handle_ca(self, ca, username, addr, data):
         self.clients["CA"].send(data)
 
         while True:
@@ -99,10 +99,12 @@ class Server:
                 self.clients[username].send("Success. Account created.")
 
                 # TODO: Let the client know that they are signed up and logged in
-
+                
                 break
             else:
                 print("Waiting for a reponse from CA, but this is not a valid response")
+        
+        self.handle_client(ca, username, addr)
             
 
     def broadcast(self, msg):
