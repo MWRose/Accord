@@ -10,6 +10,9 @@ REQUEST_KIND_CA_REQUEST = "ca_request"
 REQUEST_KIND_CA_RESPONSE = "ca_response"
 REQUEST_KIND_LOGIN_REQUEST = "login_request"
 REQUEST_KIND_LOGIN_RESPONSE = "login_response"
+REQUEST_KIND_ACCOUNT_CREATED = "account_created"
+REQUEST_KIND_ACCOUNT_NOT_CREATED = "account_not_created"
+REQUEST_KIND_BROADCAST = "broadcast"
 
 class Request:
     def __init__(self, data: Dict):
@@ -54,6 +57,12 @@ class Request:
 
     def is_login_response(self) -> bool:
         return self.is_valid and self.data["kind"] == REQUEST_KIND_LOGIN_RESPONSE
+
+    def is_account_created(self) -> bool:
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_ACCOUNT_CREATED
+
+    def is_account_not_created(self) -> bool:
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_ACCOUNT_NOT_CREATED
 
 def create_request(kind: str, values: Sequence[Tuple[str, object]]) -> bytes:
     data = {
@@ -100,10 +109,17 @@ def login_response():
     #TODO: Respond with all login information
     pass
 
+def account_created():
+    values = []
+    return create_request(REQUEST_KIND_ACCOUNT_CREATED, values)
+
+def account_not_created():
+    values = []
+    return create_request(REQUEST_KIND_ACCOUNT_NOT_CREATED, values)
+
 def broadcast(message: str) -> bytes:
     values = [("message", message)]
     return create_request(REQUEST_KIND_BROADCAST, values)
-
 
 def parse_request(request: bytes) -> Request:
     try:

@@ -6,7 +6,7 @@ import sys
 import Requests
 import Crypto_Functions
 import base64
-
+import threading
 
 class CertAuth:
     def __init__(self):
@@ -38,21 +38,23 @@ class CertAuth:
         self.rec.bind((hostname, 4747))
         self.rec.listen(100)
 
-        setup_request = Requests.login_request("CA")
+        setup_request = Requests.login("CA")
         self.snd.send(setup_request)
         
         while True:
             c, addr = self.rec.accept()
 
-            data = c.recv(2048)
+            data = c.recv(4096)
             request = Requests.parse_request(data)
             if request.is_ca_request():
-                self.receive_request(request.data)
+                threading.Thread(target=self.receive_request, args=(request.data)).start()
                 
 
     def receive_request(self, data):
         # aes key from client/server = b'\r\xea/%\xe1\x0f\xa8\xb0\xe8\x08\x0cR\xf2zh9'
         # b'DeovJeEPqLDoCAxS8npoOQ=='
+
+        print("Received a request: ", data)
 
         aes_key_encrypted_b64 = data["aes_key_encrypted"].encode()[2:-1]
         aes_key_encrypted = base64.b64decode(aes_key_encrypted_b64)
@@ -79,10 +81,10 @@ class CertAuth:
         signature_contents = encrypted_b64
         if self.check_signature(signature_contents, signature, public_key):
             print("valid")
-            message = username + "," + str(public_key)
-            ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
+            message = username + "," + public_key
+            ca_signature = Crypto_Functions.rsa_sign(message, self.private_key)
             ca_response = Requests.ca_response(username, public_key, ca_signature)
-            print(ca_response)
+            self.snd.send(ca_response)
         else:
             print("Signature not signed with the correct public key")
 

@@ -139,17 +139,19 @@ class Client:
                 signed_b64 = base64.b64encode(signed)
 
                 request = Requests.ca_request(str(aes_key_encryptedb64), str(aes_key_signedb64), str(iv_b64), str(encrypted_b64), str(signed_b64), self.username)
+                print("Request for CA: ", request)
                 self.s.send(request)
 
                 while True:
-                    data = self.s.recv(2048)
+                    data = self.s.recv(4096)
                     request = Requests.parse_request(data)
                     # TODO: This needs to be worked on
                     if request.account_created():
-                        key1, key2 = Crypto_Functions.hash_keys(self.password.encode())
-                        enc_msg, iv = Crypto_Functions.aes_encrypt(str(self.private_key))
-                        request = Requests.user_private_key()
-                        self.s.send()
+                        print("Account successfully created! Please log in with your new credentials.")
+                        self.login()
+                    elif request.account_not_created():
+                        print("Account was not created. Please try again.")
+                        self.create_account()
             else: 
                 print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
 
@@ -381,7 +383,7 @@ class Client:
 
     def handle_receive(self):
         while True:
-            data = self.s.recv(2048)
+            data = self.s.recv(4096)
             request = Requests.parse_request(data)
 
             # Handle different message types

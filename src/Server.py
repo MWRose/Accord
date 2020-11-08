@@ -49,13 +49,13 @@ class Server:
         while True:
             c, addr = self.s.accept()
 
-            data = c.recv(2048)
+            data = c.recv(4096)
 
             request = Requests.parse_request(data)
 
-            print(request.data)
+            print(data)
 
-            if request.is_login():
+            if len(request.data) > 0 and request.is_login():
                 username = request.data["username"]
                 if username == "CA":
                     self.clients["CA"] = c
@@ -65,14 +65,13 @@ class Server:
                     self.clients[username] = c
                     threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
 
-            if request.is_ca_request():
+            if len(request.data) > 0 and request.is_ca_request():
                 username = request.data["username"]
-                print("New connection. Username: " + str(username))
-                self.broadcast(username + " has entered the chat.")
+                print("New CA request. Username: " + str(username))
                 self.clients[username] = c
 
                 # Communicate with CA
-                threading.Thread(target=self.handle_ca, args=(c,username,addr,request)).start()
+                threading.Thread(target=self.handle_ca, args=(c,username,addr,data)).start()
             # else: 
             #     # Communicate with client
             #     threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
@@ -83,12 +82,11 @@ class Server:
 
         while True:
             try:
-                data = ca.recv(2048)
+                data = ca.recv(4096)
             except:
                 "Connection with CA closed"
 
             request = Requests.parse_request(data)
-            
             if request.is_ca_response():
                 username = request.data["username"]
                 public_key = request.data["public_key"]
@@ -96,15 +94,17 @@ class Server:
 
                 if (not Database.check_user(username)):
                     Database.add_user_info(username, public_key, ca_signature)
-                self.clients[username].send("Success. Account created.")
-
-                # TODO: Let the client know that they are signed up and logged in
-                
-                break
+                    request = Requests.account_created()
+                    self.clients[username].send(request)
+                    self.handle_client(ca, username, addr)
+                else:
+                    request = Requests.account_not_created()
+                    self.clients[username].send(request)
+                    print("Could not create an account. The provide username is taken.")
             else:
                 print("Waiting for a reponse from CA, but this is not a valid response")
         
-        self.handle_client(ca, username, addr)
+
             
 
     def broadcast(self, msg):
@@ -114,7 +114,7 @@ class Server:
     def handle_client(self,c,username,addr):
         while True:
             try:
-                data = c.recv(2048)
+                data = c.recv(4096)
             except:
                 c.shutdown(socket.SHUT_RDWR)
                 del self.clients[username]
