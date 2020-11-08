@@ -100,7 +100,7 @@ class Server:
                 else:
                     request = Requests.account_not_created()
                     c.send(request)
-                    print("Could not create an account. The provide username is taken.")
+                    print("Could not create an account. The provided username is taken.")
             else:
                 print("Waiting for a response from CA, but this is not a valid response")
         

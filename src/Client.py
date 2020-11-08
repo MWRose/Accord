@@ -148,12 +148,13 @@ class Client:
                     # TODO: This needs to be worked on
                     if request.is_account_created():
                         print("Account successfully created! Please log in with your new credentials.")
-                        self.login()
+                        break
                     elif request.is_account_not_created():
                         print("Account was not created. Please try again.")
                         self.create_account()
             else: 
                 print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
+            self.login()
 
 
     def login(self):
