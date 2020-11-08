@@ -146,10 +146,10 @@ class Client:
                     data = self.s.recv(4096)
                     request = Requests.parse_request(data)
                     # TODO: This needs to be worked on
-                    if request.account_created():
+                    if request.is_account_created():
                         print("Account successfully created! Please log in with your new credentials.")
                         self.login()
-                    elif request.account_not_created():
+                    elif request.is_account_not_created():
                         print("Account was not created. Please try again.")
                         self.create_account()
             else: 

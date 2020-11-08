@@ -30,24 +30,20 @@ class CertAuth:
         server_hostname = args[1]
         server_port = int(args[2])
 
-        self.snd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.snd.connect((server_hostname, server_port))
-
-        hostname = socket.gethostbyname(socket.gethostname())
-        self.rec = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.rec.bind((hostname, 4747))
-        self.rec.listen(100)
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.connect((server_hostname, server_port))
 
         setup_request = Requests.login("CA")
-        self.snd.send(setup_request)
+        self.s.send(setup_request)
         
         while True:
-            c, addr = self.rec.accept()
+            print("In while loop in CA")
+            data = self.s.recv(4096)
 
-            data = c.recv(4096)
             request = Requests.parse_request(data)
+            print("Received from server: ", data)
             if request.is_ca_request():
-                threading.Thread(target=self.receive_request, args=(request.data)).start()
+                threading.Thread(target=self.receive_request, args=(request.data,)).start()
                 
 
     def receive_request(self, data):
@@ -75,18 +71,22 @@ class CertAuth:
 
         message = base64.b64decode(message_b64)
         username, public_key = message.decode().split(",")
-        public_key = public_key.encode()[2:-1]
+        public_key = public_key.encode()
 
-        # Check signature
-        signature_contents = encrypted_b64
-        if self.check_signature(signature_contents, signature, public_key):
+        # Check signatures
+        signature_contents_key = str(aes_key_encrypted_b64).encode()
+        signature_contents_message = str(encrypted_b64).encode()
+        is_valid_key_signature = self.check_signature(signature_contents_key, aes_key_signature, public_key)
+        is_valid_message_signature = self.check_signature(signature_contents_message, signature, public_key)
+        if is_valid_key_signature and is_valid_message_signature:
             print("valid")
-            message = username + "," + public_key
-            ca_signature = Crypto_Functions.rsa_sign(message, self.private_key)
-            ca_response = Requests.ca_response(username, public_key, ca_signature)
-            self.snd.send(ca_response)
+            message = username + "," + public_key.decode()
+            ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
+            ca_signature_b64 = base64.b64encode(ca_signature)
+            ca_response = Requests.ca_response(username, public_key.decode(), str(ca_signature_b64))
+            self.s.send(ca_response)
         else:
-            print("Signature not signed with the correct public key")
+            print("Signature is not valid.")
 
     def decrypt_ca_request_key(self, encrypted: bytes):
         decrypted = Crypto_Functions.rsa_decrypt(encrypted, self.private_key)

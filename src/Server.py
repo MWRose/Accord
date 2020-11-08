@@ -55,7 +55,7 @@ class Server:
 
             print(data)
 
-            if len(request.data) > 0 and request.is_login():
+            if request.is_login():
                 username = request.data["username"]
                 if username == "CA":
                     self.clients["CA"] = c
@@ -65,24 +65,24 @@ class Server:
                     self.clients[username] = c
                     threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
 
-            if len(request.data) > 0 and request.is_ca_request():
+            if request.is_ca_request():
                 username = request.data["username"]
                 print("New CA request. Username: " + str(username))
                 self.clients[username] = c
 
                 # Communicate with CA
-                threading.Thread(target=self.handle_ca, args=(c,username,addr,data)).start()
+                threading.Thread(target=self.handle_ca, args=(c,username,addr,data,)).start()
             # else: 
             #     # Communicate with client
             #     threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
 
 
-    def handle_ca(self, ca, username, addr, data):
+    def handle_ca(self, c, username, addr, data):
         self.clients["CA"].send(data)
 
         while True:
             try:
-                data = ca.recv(4096)
+                data = self.clients["CA"].recv(4096)
             except:
                 "Connection with CA closed"
 
@@ -95,14 +95,14 @@ class Server:
                 if (not Database.check_user(username)):
                     Database.add_user_info(username, public_key, ca_signature)
                     request = Requests.account_created()
-                    self.clients[username].send(request)
-                    self.handle_client(ca, username, addr)
+                    c.send(request)
+                    self.handle_client(c, username, addr)
                 else:
                     request = Requests.account_not_created()
-                    self.clients[username].send(request)
+                    c.send(request)
                     print("Could not create an account. The provide username is taken.")
             else:
-                print("Waiting for a reponse from CA, but this is not a valid response")
+                print("Waiting for a response from CA, but this is not a valid response")
         
 
             
