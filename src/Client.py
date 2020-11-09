@@ -3,21 +3,24 @@ import socket
 import threading
 from pyfiglet import Figlet
 import Crypto_Functions
-import Send, Receive
+import Send
+import Receive
 import Requests
 import base64
 import Gen
 import Database
-from PasswordChecker import PasswordChecker 
+from PasswordChecker import PasswordChecker
 
 # Argument: IP address, port number
 # Can run this multiple times for multiple different users
+
+
 class Client:
     def __init__(self):
         # Print Accord client side messages
         f = Figlet(font="smslant")
-        print (f.renderText("Welcome to ACCORD"))
-        print ("Chat away!")
+        print(f.renderText("Welcome to ACCORD"))
+        print("Chat away!")
 
         self.recipient = ""        # Direct message recipient
         self.group_name = ""       # Group message name
@@ -26,13 +29,13 @@ class Client:
         self.public_keys = {}      # Public keys for other clients TODO: Remove
         self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
         self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
-        self.username = "" # Username of this client
+        self.username = ""  # Username of this client
         self.loggedin = False
         self.ca_public_key = ""
         self.password_aes = b""
         self.password_hmac = b""
-        
-        Database.initialize_username_database() # initializes the database w/username, public key, signatures
+
+        Database.initialize_username_database()  # initializes the database w/username, public key, signatures
 
         self.create_connection()
 
@@ -86,14 +89,14 @@ class Client:
             self.create_account()
 
     def create_account(self):
-        valid_username = False 
+        valid_username = False
         while not valid_username:
             self.username = input("Enter email: ")
             if(Database.check_user(self.username)):
                 print("Username already exists in the system.")
             else:
                 valid_username = True
-                
+
         strong_password = False
         while not strong_password:
             self.password = input("Create new password: ")
@@ -103,15 +106,15 @@ class Client:
 
                 #Database.add_user_info(self.username, self.password)
                 Gen.generate_key_pair(self.username)
-                
+
                 # Get user's public key
-                f =  open('public_{}.pem'.format(self.username), 'rb')
+                f = open('public_{}.pem'.format(self.username), 'rb')
                 public_key = f.read()
                 f.close()
-                
+
                 # Get user's private key
                 self.populate_private_key()
-                
+
                 # Get CA public key TODO: Make this a hardcoded static var
                 f = open('public_ca.pem', 'rb')
                 self.ca_public_key = f.read()
@@ -152,14 +155,13 @@ class Client:
                     elif request.is_account_not_created():
                         print("Account was not created. Please try again.")
                         self.create_account()
-            else: 
+            else:
                 print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
             self.login()
 
-
     def login(self):
         self.username = input("Please enter username: ")
-        #TODO: Check if username exists in the database (this will probably need to be a send to server)
+        # TODO: Check if username exists in the database (this will probably need to be a send to server)
 
         # request = Requests.login_request(self.username)
         # self.s.send(request)
@@ -173,7 +175,6 @@ class Client:
         #         #TODO: Parse the response and populate the correct dictionaries
         #         print("todo")
         #     break
-
 
         # Receive information that is stored in the database
         contacts = Database.get_user_contact_info(self.username)
@@ -194,7 +195,7 @@ class Client:
             iv_aes = base64.b64decode(iv_aes_b64)
             iv_hmac_b64 = contact["iv_hmac"].encode[2:-1]
             iv_hmac = base64.b64decode(iv_hmac_b64)
-            
+
             # Check signature
             signature_contents = self.username + recipient + contact["enc_aes"] + contact["enc_hmac"] + contact["iv_aes"] + contact["iv_hmac"]
             Crypto_Functions.check_hmac(signature_contents.encode(), signed, self.password_hmac)
@@ -205,17 +206,14 @@ class Client:
             hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
             hmac_key = base64.b64decode(hmac_key.encode()[2:-1])
 
-            
             self.contacts[recipient] = {"aes_key": aes_key, "hmac_key": hmac_key}
 
             # TODO: Add functionality to save the public_keys in the future
 
         self.loggedin = True
 
-
     def sign_off(self):
         pass
-
 
     def create_connection(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -235,17 +233,16 @@ class Client:
             sys.exit(0)
 
         self.authenticate()
-        
+
         # Handles threading of sending and receiving messages for a client
         send_handler = threading.Thread(target=self.handle_send, args=())
         send_handler.start()
 
-        receive_handler = threading.Thread(target=self.handle_receive,args=())
+        receive_handler = threading.Thread(target=self.handle_receive, args=())
         receive_handler.start()
 
-
     # def account_create(self):
-        
+
     #     username = input("Please enter your username: ")
 
     #     # Check password
@@ -253,10 +250,8 @@ class Client:
     #         password = input("Please enter your password: ")
     #         pass_check = new
 
-
-
     def choose_send(self):
-        
+
         message_type = input("group or direct? ")
 
         if (message_type == "direct"):
@@ -267,10 +262,10 @@ class Client:
 
             # Check whether we have to send handshake
             if (self.recipient not in self.contacts or "aes_key" not in self.contacts[self.recipient]):
-                # Send handshake 
+                # Send handshake
                 # keys = {"aes": ..., "hmac": ...}
                 keys = Send.send_direct_handshake(self.username, self.recipient, self.s, self.private_key, self.contacts[self.recipient]["public_key"])
-                
+
                 # Update recipient's keys
                 self.contacts[self.recipient]["aes_key"] = keys["aes"]
                 self.contacts[self.recipient]["hmac_key"] = keys["hmac"]
@@ -284,7 +279,7 @@ class Client:
                 enc_contact_aes, iv_aes = Crypto_Functions.aes_encrypt(str(contact_aes), self.password_aes)
                 enc_contact_aes = str(base64.b64encode(enc_contact_aes))
                 iv_aes = str(base64.b64encode(iv_aes))
-                
+
                 # Get encrypted hmac under self.password_aes
                 hmac_key = base64.b64encode(keys["hmac"])
                 enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(str(hmac_key), self.password_aes)
@@ -304,13 +299,11 @@ class Client:
                     iv_aes,
                     enc_hmac_key,
                     iv_hmac
-                )   
-            
-            
-        #TODO: Clean up this logic, need to check if it's existing
+                )
+
+        # TODO: Clean up this logic, need to check if it's existing
         elif (message_type == "group"):
             self.recipient = ""
-            
 
             while True:
 
@@ -323,7 +316,6 @@ class Client:
                     self.group_name = input("What would you like to name the group? ")
                     self.group_members = group.split(',')
                     break
-                    
 
                 # The group already exists
                 elif inp == "existing" or inp == "1":
@@ -342,7 +334,6 @@ class Client:
                 else:
                     print("Please type new or existing.")
 
-
             if (self.group_name not in self.groups):
 
                 # Initialize the group dict
@@ -352,7 +343,7 @@ class Client:
                 # Send a handshake to each member in the group
                 key = Crypto_Functions.generate_session_key()
                 for recipient in self.group_members:
-                    
+
                     # Make sure we have a public key
                     if recipient not in self.contacts.keys():
                         self.populate_public_keys(recipient)
@@ -361,10 +352,9 @@ class Client:
                     # TODO: Probably don't need to reassign as it should be the same
                     self.groups[self.group_name]["aes_key"] = keys["aes"]
                     self.groups[self.group_name]["hmac_key"] = keys["hmac"]
-          
-        else: 
-            print("Enter valid response: group or direct")
 
+        else:
+            print("Enter valid response: group or direct")
 
     def handle_send(self):
         while True:
@@ -378,7 +368,7 @@ class Client:
                     self.choose_send()
 
                 if self.recipient and not self.group_name:
-                    
+
                     # Send the message
                     Send.send_direct(self.username, self.recipient, self.contacts, msg, self.s)
 
@@ -401,7 +391,7 @@ class Client:
             elif request.is_group_message():
                 Receive.receive_group(request.data, self.groups)
             elif request.is_broadcast():
-                print(request.data["message"]) 
+                print(request.data["message"])
 
             # Initiate the group chat and save keys
             elif request.is_initiate_group_chat():
@@ -410,7 +400,7 @@ class Client:
                 requester = request.data["requester"]
                 # Make sure we have the contact
                 if requester not in self.contacts or "public_key" not in self.contacts[requester].keys():
-  
+
                     self.populate_public_keys(requester)
 
                 # Recieve the handshake
@@ -444,7 +434,7 @@ class Client:
                 enc_contact_aes, iv_aes = Crypto_Functions.aes_encrypt(contact_aes, self.password_aes)
                 enc_contact_aes = str(base64.b64encode(enc_contact_aes))
                 iv_aes = str(base64.b64encode(iv_aes))
-                
+
                 # Get encrypted hmac under self.password_aes
                 hmac_key = str(base64.b64encode(hmac_key))
                 enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(hmac_key, self.password_aes)
@@ -464,10 +454,10 @@ class Client:
                     iv_aes,
                     enc_hmac_key,
                     iv_hmac
-                )   
+                )
 
     def populate_public_keys(self, username: str):
-        
+
         # Get the public key from the data base
         info = Database.get_user_info(username)
 
@@ -490,9 +480,9 @@ class Client:
         self.contacts[username]["public_key"] = public_key
 
     def populate_private_key(self):
-        f =  open('private_{}.pem'.format(self.username), 'rb')
+        f = open('private_{}.pem'.format(self.username), 'rb')
         self.private_key = f.read()
         f.close()
-            
-        
+
+
 client = Client()

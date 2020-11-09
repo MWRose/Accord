@@ -6,3 +6,4 @@ Accord_saved_accounts
 *.db
 .vscode
 ca_rsa*
+setup.cfg
