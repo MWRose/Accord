@@ -79,7 +79,7 @@ def get_all_users()->list:
 
 #get_contacts(USERNAME)
 #get_groups(USERNAME)
-DATABASE_SAVED_ACCOUNTS = r"Accord_saved_accounts"
+DATABASE_SAVED_ACCOUNTS = r"Accord_saved_accounts.db"
 '''Database users & contacts'''
 # USERNAME, ENCRYPTED(private key, contacts, groups)
 def initialize_saved_accounts_database():
@@ -179,7 +179,8 @@ def get_user_contact_info(email:str)->list:
         conn = sqlite3.connect(DATABASE_SAVED_ACCOUNTS)
         c = conn.cursor()
         return_list = []
-        for row in c.execute("SELECT * FROM contacts WHERE email=?", (email,)):
+        c.execute("SELECT * FROM contacts WHERE email=?", (email,))
+        for row in c.fetchall():
             return_list.append({"contact":row[1],"contact_aes": row[2] ,"signature": row[3],"iv_aes": row[4] ,"hmac_key":row[5],"iv_hmac": row[6],"public_key":row[7]})
     
         return return_list 

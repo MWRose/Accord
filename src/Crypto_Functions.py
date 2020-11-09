@@ -1,3 +1,4 @@
+import base64
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.Padding import pad, unpad
@@ -7,6 +8,7 @@ from Crypto.Random import get_random_bytes
 from Crypto.Protocol.KDF import PBKDF2
 
 from typing import Tuple
+import base64
 
 
 def generate_session_key() -> bytes:
@@ -109,11 +111,21 @@ def hash_keys(key: bytes) -> Tuple[bytes, bytes]:
 def hmac(msg: bytes, hmac_key: bytes) -> bytes:
     """
     Takes a hmac_key and creates a b64 tag for the msg
-    :return: a Hecadecimal encoded tag
+    :return: a Hexadecimal encoded tag
     """
     h = HMAC.new(hmac_key, digestmod=SHA256)
     h.update(msg)
     return h.hexdigest()
+
+def hmac_b64(msg: bytes, hmac_key: bytes) -> bytes:
+    """
+    Takes a hmac_key and creates a b64 tag for the msg
+    :return: a Hexadecimal encoded tag
+    """
+    h = HMAC.new(hmac_key, digestmod=SHA256)
+    h.update(msg)
+    return base64.b64encode(h.digest())
+    
 
 
 def check_hmac(msg: bytes, mac: bytes, hmac_key: bytes) -> bool:
@@ -127,6 +139,24 @@ def check_hmac(msg: bytes, mac: bytes, hmac_key: bytes) -> bool:
     h.update(msg)
     try:
         h.hexverify(mac)
+        valid = True
+    except ValueError:
+        print("The message or the key is wrong")
+
+    return valid
+
+
+def check_hmac_b64(msg: bytes, mac: bytes, hmac_key: bytes) -> bool:
+    """
+    Takes a hmac_key and a mac and checks the msg tag
+    :mac: A hexadecimal encoded tag
+    """
+    
+    valid = False
+    h = HMAC.new(hmac_key, digestmod=SHA256)
+    h.update(msg)
+    try:
+        h.verify(mac)
         valid = True
     except ValueError:
         print("The message or the key is wrong")

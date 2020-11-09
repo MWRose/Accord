@@ -35,6 +35,7 @@ def send_group_handshake(sender, recipient, members, s, sender_private_key, reci
     encrypt_msg = sender + "," + "_".join(members) + "," + str(key_b64)
     encrypted = Crypto_Functions.rsa_encrypt(encrypt_msg, recipient_public_key)
     encrypted_b64 = base64.b64encode(encrypted)
+    print(encrypted)
 
     # Create a signature for the message contents
     signature = (sender + ",".join(members) + str(encrypted_b64)).encode()

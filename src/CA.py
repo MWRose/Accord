@@ -7,9 +7,13 @@ import Requests
 import Crypto_Functions
 import base64
 import threading
+from pyfiglet import Figlet
 
 class CertAuth:
     def __init__(self):
+        f = Figlet(font="smslant")
+        print(f.renderText("Certificate Authority"))
+
         # Load the private key for CA
         f =  open('private_ca.pem', 'rb')
         self.private_key = f.read()
@@ -78,12 +82,15 @@ class CertAuth:
         signature_contents_message = str(encrypted_b64).encode()
         is_valid_key_signature = self.check_signature(signature_contents_key, aes_key_signature, public_key)
         is_valid_message_signature = self.check_signature(signature_contents_message, signature, public_key)
+
+        public_key_b64 = str(base64.b64encode(public_key))
+
         if is_valid_key_signature and is_valid_message_signature:
             print("valid")
             message = username + "," + public_key.decode()
             ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
             ca_signature_b64 = base64.b64encode(ca_signature)
-            ca_response = Requests.ca_response(username, public_key.decode(), str(ca_signature_b64))
+            ca_response = Requests.ca_response(username, public_key_b64, str(ca_signature_b64))
             self.s.send(ca_response)
         else:
             print("Signature is not valid.")

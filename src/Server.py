@@ -147,8 +147,6 @@ class Server:
         # Existing direct message
         elif request.is_direct_message():
             recipient = request.data["recipient"]
-            print("dm")
-            print(self.clients)
             if recipient in self.clients: 
                 self.clients[recipient].send(data)
         # Existing group message

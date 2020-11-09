@@ -62,7 +62,10 @@ class Request:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_ACCOUNT_CREATED
 
     def is_account_not_created(self) -> bool:
-        return self.is_valid() and self.data["kind"] == REQUEST_KIND_ACCOUNT_NOT_CREATED
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_ACCOUNT_NOT_CREATED\
+
+    def is_broadcast(self) -> bool:
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_BROADCAST and "message" in self.data
 
 def create_request(kind: str, values: Sequence[Tuple[str, object]]) -> bytes:
     data = {

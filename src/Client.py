@@ -35,7 +35,13 @@ class Client:
         self.password_aes = b""
         self.password_hmac = b""
 
+        # Get CA public key TODO: Make this a hardcoded static var
+        f = open('public_ca.pem', 'rb')
+        self.ca_public_key = f.read()
+        f.close()
+
         Database.initialize_username_database()  # initializes the database w/username, public key, signatures
+        Database.initialize_saved_accounts_database()
 
         self.create_connection()
 
@@ -83,6 +89,8 @@ class Client:
 
     def authenticate(self):
         choice = input("Login or signup: ")
+        while choice != "login" and choice != "signup":
+            choice = input("Login or signup: ")
         if choice == "login":
             self.login()
         else:
@@ -107,18 +115,14 @@ class Client:
                 #Database.add_user_info(self.username, self.password)
                 Gen.generate_key_pair(self.username)
 
+                # TODO: Pull the private key from the database
+
                 # Get user's public key
                 f = open('public_{}.pem'.format(self.username), 'rb')
                 public_key = f.read()
                 f.close()
-
                 # Get user's private key
                 self.populate_private_key()
-
-                # Get CA public key TODO: Make this a hardcoded static var
-                f = open('public_ca.pem', 'rb')
-                self.ca_public_key = f.read()
-                f.close()
 
                 # Construct a message for CA
                 aes_key = Crypto_Functions.generate_session_key()
@@ -142,13 +146,12 @@ class Client:
                 signed_b64 = base64.b64encode(signed)
 
                 request = Requests.ca_request(str(aes_key_encryptedb64), str(aes_key_signedb64), str(iv_b64), str(encrypted_b64), str(signed_b64), self.username)
-                print("Request for CA: ", request)
+                # print("Request for CA: ", request)
                 self.s.send(request)
 
                 while True:
                     data = self.s.recv(4096)
                     request = Requests.parse_request(data)
-                    # TODO: This needs to be worked on
                     if request.is_account_created():
                         print("Account successfully created! Please log in with your new credentials.")
                         break
@@ -161,8 +164,10 @@ class Client:
 
     def login(self):
         self.username = input("Please enter username: ")
+        
         # TODO: Check if username exists in the database (this will probably need to be a send to server)
-
+        self.populate_private_key()
+    
         # request = Requests.login_request(self.username)
         # self.s.send(request)
 
@@ -180,8 +185,9 @@ class Client:
         contacts = Database.get_user_contact_info(self.username)
         password = input("Please enter your password: ")
         self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
-
+        # print(contacts)
         for contact in contacts:
+            # print(contact)
 
             # Get contact info
             recipient = contact["contact"]
@@ -193,12 +199,12 @@ class Client:
             signed = base64.b64decode(signed_b64)
             iv_aes_b64 = contact["iv_aes"].encode()[2:-1]
             iv_aes = base64.b64decode(iv_aes_b64)
-            iv_hmac_b64 = contact["iv_hmac"].encode[2:-1]
+            iv_hmac_b64 = contact["iv_hmac"].encode()[2:-1]
             iv_hmac = base64.b64decode(iv_hmac_b64)
 
             # Check signature
-            signature_contents = self.username + recipient + contact["enc_aes"] + contact["enc_hmac"] + contact["iv_aes"] + contact["iv_hmac"]
-            Crypto_Functions.check_hmac(signature_contents.encode(), signed, self.password_hmac)
+            signature_contents = self.username + recipient + contact["contact_aes"] + contact["hmac_key"] + contact["iv_aes"] + contact["iv_hmac"]
+            Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac)
 
             # Decrypt keys
             aes_key = Crypto_Functions.aes_decrypt(enc_aes, iv_aes, self.password_aes)
@@ -210,9 +216,12 @@ class Client:
 
             # TODO: Add functionality to save the public_keys in the future
 
+        request = Requests.login(self.username)
+        self.s.send(request)
         self.loggedin = True
 
     def sign_off(self):
+        # TODO
         pass
 
     def create_connection(self):
@@ -241,14 +250,6 @@ class Client:
         receive_handler = threading.Thread(target=self.handle_receive, args=())
         receive_handler.start()
 
-    # def account_create(self):
-
-    #     username = input("Please enter your username: ")
-
-    #     # Check password
-    #     while True:
-    #         password = input("Please enter your password: ")
-    #         pass_check = new
 
     def choose_send(self):
 
@@ -261,7 +262,10 @@ class Client:
             self.group_members = []
 
             # Check whether we have to send handshake
-            if (self.recipient not in self.contacts or "aes_key" not in self.contacts[self.recipient]):
+            # print(self.contacts)
+            # print(self.contacts[self.recipient].keys())
+            if (self.recipient not in self.contacts or "aes_key" not in self.contacts[self.recipient].keys()):
+
                 # Send handshake
                 # keys = {"aes": ..., "hmac": ...}
                 keys = Send.send_direct_handshake(self.username, self.recipient, self.s, self.private_key, self.contacts[self.recipient]["public_key"])
@@ -288,9 +292,9 @@ class Client:
 
                 # Create the signature
                 signature_contents = self.username + contact + enc_contact_aes + enc_hmac_key + iv_aes + iv_hmac
-                signature = Crypto_Functions.hmac(signature_contents.encode(), self.password_hmac)
-                signature = str(base64.b64encode(signature))
+                signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
 
+                # Update the database
                 Database.add_contact_info(
                     email,
                     contact,
@@ -357,6 +361,7 @@ class Client:
             print("Enter valid response: group or direct")
 
     def handle_send(self):
+
         while True:
             if not self.recipient and not self.group_name:
                 self.choose_send()
@@ -370,6 +375,7 @@ class Client:
                 if self.recipient and not self.group_name:
 
                     # Send the message
+                    # print(self.contacts)
                     Send.send_direct(self.username, self.recipient, self.contacts, msg, self.s)
 
                 elif self.group_name:
@@ -381,6 +387,7 @@ class Client:
                     self.choose_send()
 
     def handle_receive(self):
+
         while True:
             data = self.s.recv(4096)
             request = Requests.parse_request(data)
@@ -443,8 +450,7 @@ class Client:
 
                 # Create the signature
                 signature_contents = self.username + contact + enc_contact_aes + enc_hmac_key + iv_aes + iv_hmac
-                signature = Crypto_Functions.hmac(signature_contents.encode(), self.password_hmac)
-                signature = str(base64.b64encode(signature))
+                signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
 
                 Database.add_contact_info(
                     email,
@@ -462,19 +468,22 @@ class Client:
         info = Database.get_user_info(username)
 
         # Check if it exists
-        if info == None:
+        if info is None:
             print("The user you requested was not found in the database")
             return
 
-        public_key = info["public_key"]
-        ca_signature = info["ca_signature"]
+        public_key_b64 = info["public_key"].encode()[2:-1]
+        ca_signature_b64 = info["ca_signature"].encode()[2:-1]
+
+        public_key = base64.b64decode(public_key_b64)
+        ca_signature = base64.b64decode(ca_signature_b64)
+
 
         # Check the CA's signature
-        signature_contents = username + "," + str(public_key)
-        if not Crypto_Functions.rsa_check_sign(signature_contents, ca_signature, self.ca_public_key):
+        signature_contents = username + "," + public_key.decode()
+        if not Crypto_Functions.rsa_check_sign(signature_contents.encode(), ca_signature, self.ca_public_key):
             print("The requested public key and signature do not match for " + username)
             return
-
         if username not in self.contacts:
             self.contacts[username] = dict()
         self.contacts[username]["public_key"] = public_key

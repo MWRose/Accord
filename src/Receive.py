@@ -92,7 +92,7 @@ def receive_group_handshake(data,sender,groups,contacts,private_key):
         requester = data["requester"]
         encrypted_b64 = data["encrypted"]
         signed_b64 = data["signed"]
-
+    
         encrypted = base64.b64decode(encrypted_b64.encode()[2:-1])
         signed = base64.b64decode(signed_b64.encode()[2:-1])
 
