@@ -190,19 +190,20 @@ class Client:
             enc_hmac = base64.b64decode(enc_hmac_b64)
             signed_b64 = contact["signature"].encode()[2:-1]
             signed = base64.b64decode(signed_b64)
-            iv_aes_b64 = contact["iv_aes"]
+            iv_aes_b64 = contact["iv_aes"].encode()[2:-1]
             iv_aes = base64.b64decode(iv_aes_b64)
-            iv_hmac_b64 = contact["iv_hmac"]
+            iv_hmac_b64 = contact["iv_hmac"].encode[2:-1]
             iv_hmac = base64.b64decode(iv_hmac_b64)
             
             # Check signature
             signature_contents = self.username + recipient + contact["enc_aes"] + contact["enc_hmac"] + contact["iv_aes"] + contact["iv_hmac"]
-            Crypto_Functions.check_hmac(signature_contents, signed, self.password_hmac)
+            Crypto_Functions.check_hmac(signature_contents.encode(), signed, self.password_hmac)
 
             # Decrypt keys
-            iv_aes.encode()[2:1]
             aes_key = Crypto_Functions.aes_decrypt(enc_aes, iv_aes, self.password_aes)
+            aes_key = base64.b64decode(aes_key.encode()[2:-1])
             hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
+            hmac_key = base64.b64decode(hmac_key.encode()[2:-1])
 
             
             self.contacts[recipient] = {"aes_key": aes_key, "hmac_key": hmac_key}
@@ -274,29 +275,36 @@ class Client:
                 self.contacts[self.recipient]["aes_key"] = keys["aes"]
                 self.contacts[self.recipient]["hmac_key"] = keys["hmac"]
 
-                # Update the Database
+                ### --- Update the Database --- ###
                 email = self.username
                 contact = self.recipient
 
                 # Get encrypted aes under self.password_aes
-                contact_aes = base64.b64encode(["aes"])
+                contact_aes = base64.b64encode(keys["aes"])
                 enc_contact_aes, iv_aes = Crypto_Functions.aes_encrypt(str(contact_aes), self.password_aes)
                 enc_contact_aes = str(base64.b64encode(enc_contact_aes))
                 iv_aes = str(base64.b64encode(iv_aes))
                 
                 # Get encrypted hmac under self.password_aes
-                hmac_key = base64.b64encode(["hmac"])
+                hmac_key = base64.b64encode(keys["hmac"])
                 enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(str(hmac_key), self.password_aes)
                 enc_hmac_key = str(base64.b64encode(enc_hmac_key))
                 iv_hmac = str(base64.b64encode(iv_hmac))
 
                 # Create the signature
-                signature_contents = contact + contact_aes + enc_hmac_key
-                
+                signature_contents = self.username + contact + enc_contact_aes + enc_hmac_key + iv_aes + iv_hmac
+                signature = Crypto_Functions.hmac(signature_contents.encode(), self.password_hmac)
+                signature = str(base64.b64encode(signature))
 
-
-
-                
+                Database.add_contact_info(
+                    email,
+                    contact,
+                    enc_contact_aes,
+                    signature,
+                    iv_aes,
+                    enc_hmac_key,
+                    iv_hmac
+                )   
             
             
         #TODO: Clean up this logic, need to check if it's existing
@@ -427,13 +435,47 @@ class Client:
                 self.contacts[requester]["aes_key"] = aes_key
                 self.contacts[requester]["hmac_key"] = hmac_key
 
-                # Update the database
-                # TODO
+                ### --- Update the Database --- ###
+                email = self.username
+                contact = requester
+
+                # Get encrypted aes under self.password_aes
+                contact_aes = str(base64.b64encode(aes_key))
+                enc_contact_aes, iv_aes = Crypto_Functions.aes_encrypt(contact_aes, self.password_aes)
+                enc_contact_aes = str(base64.b64encode(enc_contact_aes))
+                iv_aes = str(base64.b64encode(iv_aes))
+                
+                # Get encrypted hmac under self.password_aes
+                hmac_key = str(base64.b64encode(hmac_key))
+                enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(hmac_key, self.password_aes)
+                enc_hmac_key = str(base64.b64encode(enc_hmac_key))
+                iv_hmac = str(base64.b64encode(iv_hmac))
+
+                # Create the signature
+                signature_contents = self.username + contact + enc_contact_aes + enc_hmac_key + iv_aes + iv_hmac
+                signature = Crypto_Functions.hmac(signature_contents.encode(), self.password_hmac)
+                signature = str(base64.b64encode(signature))
+
+                Database.add_contact_info(
+                    email,
+                    contact,
+                    enc_contact_aes,
+                    signature,
+                    iv_aes,
+                    enc_hmac_key,
+                    iv_hmac
+                )   
 
     def populate_public_keys(self, username: str):
         
         # Get the public key from the data base
         info = Database.get_user_info(username)
+
+        # Check if it exists
+        if info == None:
+            print("The user you requested was not found in the database")
+            return
+
         public_key = info["public_key"]
         ca_signature = info["ca_signature"]
 
