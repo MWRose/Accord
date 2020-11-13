@@ -128,5 +128,5 @@ def parse_request(request: bytes) -> Request:
     try:
         data = json.loads(request.decode())
         return Request(data)
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError as _:
         return Request(dict())

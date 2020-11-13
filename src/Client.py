@@ -183,6 +183,14 @@ class Client:
 
         # Receive information that is stored in the database
         contacts = Database.get_user_contact_info(self.username)
+        if not contacts: 
+            while(True):
+                is_new = input("The username you typed does not exist. Would you like to create a new account?")
+                if (is_new == "yes"):
+                    self.create_account()
+                    break
+                elif (is_new == "no"):
+                    break
         password = input("Please enter your password: ")
         self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
         # print(contacts)

@@ -48,14 +48,12 @@ class Server:
 
         while True:
             c, addr = self.s.accept()
-
             data = c.recv(4096)
-
             request = Requests.parse_request(data)
 
-            print(data)
-
-            if request.is_login():
+            if len(request.data) == 0:
+                print("There was in issue with the received data. Received the following raw data: ", data)
+            elif request.is_login():
                 username = request.data["username"]
                 if username == "CA":
                     self.clients["CA"] = c
@@ -64,17 +62,12 @@ class Server:
                     self.broadcast(username + " has entered the chat.")
                     self.clients[username] = c
                     threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
-
-            if request.is_ca_request():
+            elif request.is_ca_request():
                 username = request.data["username"]
                 print("New CA request. Username: " + str(username))
                 self.clients[username] = c
-
                 # Communicate with CA
                 threading.Thread(target=self.handle_ca, args=(c,username,addr,data,)).start()
-            # else: 
-            #     # Communicate with client
-            #     threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
 
 
     def handle_ca(self, c, username, addr, data):
@@ -87,6 +80,8 @@ class Server:
                 "Connection with CA closed"
 
             request = Requests.parse_request(data)
+            if len(request.data) == 0:
+                print("There was in issue with the received data. Received the following raw data: ", data)
             if request.is_ca_response():
                 username = request.data["username"]
                 public_key = request.data["public_key"]
