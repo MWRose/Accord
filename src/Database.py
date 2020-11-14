@@ -340,6 +340,4 @@ def erase_msg_timestamp(timestamp:str)->bool:
         print(e)
         return False
 
-if __name__ == '__main__':
-
-    
+# if __name__ == '__main__':
