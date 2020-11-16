@@ -160,7 +160,7 @@ class Client:
                         self.create_account()
             else:
                 print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
-            self.login()
+        self.login()
 
     def login(self):
         self.username = input("Please enter username: ")
