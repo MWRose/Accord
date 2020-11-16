@@ -1,4 +1,5 @@
 from Crypto.PublicKey import RSA
+import sys
 
 def generate_key_pair(name: str):
     """
@@ -19,3 +20,14 @@ def generate_key_pair(name: str):
     f = open('public_{}.pem'.format(name), 'wb')
     f.write(pubkey.exportKey('PEM'))
     f.close()
+
+def main():
+    # Get command line arguments and check correctness
+    args = sys.argv
+    if len(args) != 2:
+        print("correct usage: python3 Gen.py <username>")
+    username = args[1]
+    generate_key_pair(username)
+
+if __name__ == "__main__":
+    main()
