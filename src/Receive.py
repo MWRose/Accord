@@ -5,6 +5,8 @@ import Requests
 def receive_direct(data, contacts):
     '''Receiving direct private messages '''
     sender = data["sender"]
+    print("printing contacts")
+    print(contacts)
 
     # Decode messages
     enc_msg_b64 = data["message"].encode()[2:-1]
@@ -20,7 +22,7 @@ def receive_direct(data, contacts):
     tag = data["tag"]
     valid = Crypto_Functions.check_hmac(enc_msg, tag, hmac_key)
     if not valid:
-        raise Exception("AHHHH")
+        raise Exception("HMAC not valid")
 
     # Decrypt message
     decrypted_msg = Crypto_Functions.aes_decrypt(enc_msg, iv, aes_key)
