@@ -115,42 +115,22 @@ class Client:
                 #Database.add_user_info(self.username, self.password)
                 Gen.generate_key_pair(self.username)
 
-                # TODO: Pull the private key from the database
-
                 # Get user's public key
                 f = open('public_{}.pem'.format(self.username), 'rb')
                 public_key = f.read()
                 f.close()
+                
                 # Get user's private key
-                self.populate_private_key()
+                self.populate_private_key_from_file()
+                
+                # Read the key from a file then put it in the data base encrypted
 
-                # Construct a message for CA
-                aes_key = Crypto_Functions.generate_session_key()
-                aes_keyb64 = base64.b64encode(aes_key)
-                aes_key_encrypted = Crypto_Functions.rsa_encrypt(str(aes_keyb64), self.ca_public_key)
-                aes_key_encryptedb64 = base64.b64encode(aes_key_encrypted)
-
-                aes_key_signature = str(aes_key_encryptedb64).encode()
-                aes_key_signed = Crypto_Functions.rsa_sign(aes_key_signature, self.private_key)
-                aes_key_signedb64 = base64.b64encode(aes_key_signed)
-
-                message = self.username + "," + public_key.decode()
-                message_b64 = base64.b64encode(message.encode())
-                encrypted, iv = Crypto_Functions.aes_encrypt(str(message_b64), aes_key)
-                encrypted_b64 = base64.b64encode(encrypted)
-                iv_b64 = base64.b64encode(iv)
-
-                # Create a signature for the message contents
-                signature = str(encrypted_b64).encode()
-                signed = Crypto_Functions.rsa_sign(signature, self.private_key)
-                signed_b64 = base64.b64encode(signed)
-
-                request = Requests.ca_request(str(aes_key_encryptedb64), str(aes_key_signedb64), str(iv_b64), str(encrypted_b64), str(signed_b64), self.username)
-                # print("Request for CA: ", request)
-                self.s.send(request)
+                pub_key_b64 = base64.b64encode(public_key)
+                request = Requests.ca_request(self.username, pub_key_b64)
+                self.ca.send(request)
 
                 while True:
-                    data = self.s.recv(4096)
+                    data = self.ca.recv(4096)
                     request = Requests.parse_request(data)
                     if request.is_account_created():
                         print("Account successfully created! Please log in with your new credentials.")
@@ -166,7 +146,7 @@ class Client:
         self.username = input("Please enter username: ")
         
         
-        # TODO: Check if username exists in the database (this will probably need to be a send to server)
+        # TODO: change populate private key to check if username exists, get rid of this try except block
         try: 
             self.populate_private_key()
                     # Receive information that is stored in the database
@@ -192,15 +172,21 @@ class Client:
 
                 # Check signature
                 signature_contents = self.username + recipient + contact["contact_aes"] + contact["hmac_key"] + contact["iv_aes"] + contact["iv_hmac"]
-                Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac)
+                if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
+                    print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
+                    self.login()
+                    return
 
                 # Decrypt keys
-                aes_key = Crypto_Functions.aes_decrypt(enc_aes, iv_aes, self.password_aes)
-                aes_key = base64.b64decode(aes_key.encode()[2:-1])
-                hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
-                hmac_key = base64.b64decode(hmac_key.encode()[2:-1])
-
-                self.contacts[recipient] = {"aes_key": aes_key, "hmac_key": hmac_key}
+                try:
+                    aes_key = Crypto_Functions.aes_decrypt(enc_aes, iv_aes, self.password_aes)
+                    aes_key = base64.b64decode(aes_key.encode()[2:-1])
+                    hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
+                    hmac_key = base64.b64decode(hmac_key.encode()[2:-1])
+                    self.contacts[recipient] = {"aes_key": aes_key, "hmac_key": hmac_key}
+                except:
+                    print("Incorrect Decryption")
+                
 
                 # TODO: Add functionality to save the public_keys in the future
 
@@ -210,11 +196,14 @@ class Client:
         except OSError as e: 
             while(True):
                 is_new = input("The username you typed does not exist. Would you like to create a new account?")
-                if (is_new == "yes"):
+                if (is_new == "yes" or is_new == "y"):
                     self.create_account()
                     break
-                elif (is_new == "no"):
+                elif (is_new == "no" or is_new == "n"):
+                    self.login()
                     break
+                else:
+                    print("Please type yes or no.")
 
 
     
@@ -240,14 +229,16 @@ class Client:
         try:
             # Get command line arguments and check correctness
             args = sys.argv
-            if len(args) != 3:
-                print("correct usage: python3 Server.py <server name> <port>")
+            if len(args) != 4:
+                print("correct usage: python3 Server.py <hostname> <server_port> <ca_port>")
                 sys.exit(0)
 
-            server_name = args[1]
+            hostname = args[1]
             server_port = int(args[2])
+            ca_port = int(args[3])
 
-            self.s.connect((server_name, server_port))
+            self.s.connect((hostname, server_port))
+            self.ca.connect((hostname, ca_port))
         except:
             print("Couldn't connect to server, please type in valid host name and port.")
             sys.exit(0)
@@ -368,6 +359,11 @@ class Client:
                     self.groups[self.group_name]["aes_key"] = keys["aes"]
                     self.groups[self.group_name]["hmac_key"] = keys["hmac"]
 
+                    ### --- Update the database --- ###
+                    # TODO
+
+
+
         else:
             print("Enter valid response: group or direct")
 
@@ -430,6 +426,9 @@ class Client:
 
                 # This will completely overwrite or add a new one
                 self.groups[group_name] = {"aes_key": aes_key, "hmac_key": hmac_key, "members": members}
+
+                ### --- Update the Database --- ###
+                # TODO
 
             elif request.is_initiate_direct_message():
                 requester = request.data["requester"]
@@ -499,10 +498,17 @@ class Client:
             self.contacts[username] = dict()
         self.contacts[username]["public_key"] = public_key
 
-    def populate_private_key(self):
+    def populate_private_key_from_file(self):
         f = open('private_{}.pem'.format(self.username), 'rb')
         self.private_key = f.read()
         f.close()
+
+    def populate_private_key(self):
+        info = Database.get_user_accounts(self.username)
+        if info == []:
+            print("Private key not stored")
+            return ""
+        return (info["private_key"], info["tag"])
 
 
 client = Client()

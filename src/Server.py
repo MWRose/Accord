@@ -55,53 +55,11 @@ class Server:
                 print("There was in issue with the received data. Received the following raw data: ", data)
             elif request.is_login():
                 username = request.data["username"]
-                if username == "CA":
-                    self.clients["CA"] = c
-                else: 
-                    print("New connection. Username: " + str(username))
-                    self.broadcast(username + " has entered the chat.")
-                    self.clients[username] = c
-                    threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
-            elif request.is_ca_request():
-                username = request.data["username"]
-                print("New CA request. Username: " + str(username))
+                print("New connection. Username: " + str(username))
+                self.broadcast(username + " has entered the chat.")
                 self.clients[username] = c
-                # Communicate with CA
-                threading.Thread(target=self.handle_ca, args=(c,username,addr,data,)).start()
-
-
-    def handle_ca(self, c, username, addr, data):
-        self.clients["CA"].send(data)
-
-        while True:
-            try:
-                data = self.clients["CA"].recv(4096)
-            except:
-                "Connection with CA closed"
-
-            request = Requests.parse_request(data)
-            if len(request.data) == 0:
-                print("There was in issue with the received data. Received the following raw data: ", data)
-            if request.is_ca_response():
-                username = request.data["username"]
-                public_key = request.data["public_key"]
-                ca_signature = request.data["signature"]
-
-                if (not Database.check_user(username)):
-                    Database.add_user_info(username, public_key, ca_signature)
-                    request = Requests.account_created()
-                    c.send(request)
-                    self.handle_client(c, username, addr)
-                else:
-                    request = Requests.account_not_created()
-                    c.send(request)
-                    print("Could not create an account. The provided username is taken.")
-            else:
-                print("Waiting for a response from CA, but this is not a valid response")
+                threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
         
-
-            
-
     def broadcast(self, msg):
         for connection in self.clients.values():
             connection.send(Requests.broadcast(msg))

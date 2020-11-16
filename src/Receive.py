@@ -1,6 +1,7 @@
 import Crypto_Functions
 import base64
 import Requests
+import datetime
 
 def receive_direct(data, contacts):
     '''Receiving direct private messages '''
@@ -18,9 +19,19 @@ def receive_direct(data, contacts):
     aes_key = contacts[sender]["aes_key"]
     hmac_key = contacts[sender]["hmac_key"]
 
+     # Get timestamp
+    msg_timestamp = data["timestamp"]
+    current_timestamp = datetime.datetime.now().timestamp()
+
+    # Check if the timestamp is accurate
+    # if current_timestamp - int(msg_timestamp) > 20:
+    #     print("Large difference in time sent and time recieved... returning")
+    #     return
+
     # Check tag
     tag = data["tag"]
-    valid = Crypto_Functions.check_hmac(enc_msg, tag, hmac_key)
+    tag_contents = str(base64.b64encode(enc_msg)) + msg_timestamp
+    valid = Crypto_Functions.check_hmac(tag_contents.encode(), tag, hmac_key)
     if not valid:
         raise Exception("HMAC not valid")
 
@@ -44,10 +55,20 @@ def receive_group(data, groups):
     # Get shared key
     aes_key = groups[group_name]["aes_key"]
     hmac_key = groups[group_name]["hmac_key"]
+
+    # Get timestamp
+    msg_timestamp = data["timestamp"]
+    current_timestamp = datetime.datetime.now().timestamp()
+
+    # Check if the timestamp is accurate
+    # if current_timestamp - int(msg_timestamp) > 20:
+    #     print("Large difference in time sent and time recieved... returning")
+    #     return
     
     # Check tag
     tag = data["tag"]
-    valid = Crypto_Functions.check_hmac(enc_msg, tag, hmac_key)
+    tag_contents = str(base64.b64encode(enc_msg)) + msg_timestamp
+    valid = Crypto_Functions.check_hmac(tag_contents.encode(), tag, hmac_key)
     if not valid:
         raise Exception("AHHHH")
 

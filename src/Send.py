@@ -3,6 +3,7 @@ import base64
 import Requests
 import socket
 import sys
+import datetime
 
 def send_direct_handshake(sender, recipient, s, sender_private_key, recipient_public_key):
     # Message contents
@@ -65,15 +66,20 @@ def send_group_message(message, sender, group_name, s, group_members, groups):
 
     # Encrypt
     enc_msg, iv = Crypto_Functions.aes_encrypt(message, aes_key)
+    
 
     # Create message tag on encypted data
-    tag = Crypto_Functions.hmac(enc_msg, hmac_key)
+    timestamp = str(datetime.datetime.now().timestamp())
+    tag_contents = str(base64.b64encode(enc_msg)) + timestamp
+    tag = Crypto_Functions.hmac(tag_contents.encode(), hmac_key)
 
     # Encoding
     enc_msg_b64 = base64.b64encode(enc_msg)
     iv_b64 = base64.b64encode(iv)
 
-    s.send(Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), tag))
+    
+
+    s.send(Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), timestamp, tag))
 
 def send_direct(sender, recipient, contacts, message, s):
     # Get keys
@@ -84,10 +90,12 @@ def send_direct(sender, recipient, contacts, message, s):
     enc_msg, iv = Crypto_Functions.aes_encrypt(message, aes_key)
 
     # Create message tag on encypted data
-    tag = Crypto_Functions.hmac(enc_msg, hmac_key)
+    timestamp = str(datetime.datetime.now().timestamp())
+    tag_contents = str(base64.b64encode(enc_msg)) + timestamp
+    tag = Crypto_Functions.hmac(tag_contents.encode(), hmac_key)
 
     # Encoding
     enc_msg_b64 = base64.b64encode(enc_msg)
     iv_b64 = base64.b64encode(iv)
 
-    s.send(Requests.direct_message(sender, recipient, str(enc_msg_b64), str(iv_b64), tag))
+    s.send(Requests.direct_message(sender, recipient, str(enc_msg_b64), str(iv_b64), timestamp, tag))

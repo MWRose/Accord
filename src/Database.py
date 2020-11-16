@@ -199,7 +199,7 @@ def initialize_groups_database():
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
         cursor.execute("""CREATE TABLE groups
-                        (group_name TEXT, username TEXT, aes_key TEXT)    
+                        (group_name TEXT, participant TEXT, signature TEXT, aes_key TEXT, aes_iv TEXT, hmac_key TEXT, hmac_iv TEXT)    
                         """)
         return True
     except Exception as e:
@@ -208,7 +208,9 @@ def initialize_groups_database():
         if conn:
             conn.close()
 
-def add_group(group_name:str,participants:list,aes_key:str) -> bool:
+#email:str,contact:str,contact_aes:str,signature:str,iv_aes:str,hmac_key:str,iv_hmac:str,
+
+def add_group(group_name:str, participants:list, signature:str, aes_key:str, aes_iv:str, hmac_key:str, hmac_iv:str) -> bool:
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
@@ -219,25 +221,26 @@ def add_group(group_name:str,participants:list,aes_key:str) -> bool:
             cursor.execute("DELETE FROM groups WHERE group_name = ?", (group_name,)) 
             sqlite_insert_with_param = """
                         INSERT INTO groups
-                        (group_name, username , aes_key)    
-                        VALUES(?,?,?);
+                        (group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv)    
+                        VALUES(?,?,?,?,?,?,?);
                         """
             for participant in participants:            
-                cursor.execute(sqlite_insert_with_param, (group_name, participant , aes_key,))
+                cursor.execute(sqlite_insert_with_param, (group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv,))
                 conn.commit()
         else:
             sqlite_insert_with_param = """
                         INSERT INTO groups
-                        (group_name, username , aes_key)    
-                        VALUES(?,?,?);
+                        (group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv)        
+                        VALUES(?,?,?,?,?,?,?);
                         """
             for participant in participants:            
-                cursor.execute(sqlite_insert_with_param, (group_name, participant , aes_key,))
+                cursor.execute(sqlite_insert_with_param, (group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv,))
                 conn.commit()
             
         conn.close()
         return True
     except Exception as e:
+        print(e)
         return False    
 
 
@@ -251,7 +254,7 @@ def get_group_participants(group_name:str)->list:
         if results is None:
             return return_list
         for r in results:
-            return_list.append({"group_name":group_name,"username":r[1],"aes_key":r[2]})
+            return_list.append({"group_name": r[0] , "participant": r[1] ,"signature": r[2], "aes_key": r[3] , "aes_iv": r[4], "hmac_key": r[5] , "hmac_iv": r[6]})
 
         return return_list       
     except Exception as e:
@@ -262,15 +265,22 @@ def get_username_groups(username:str):
         return_list = []
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM groups WHERE username=?", (username,))
+        cursor.execute("SELECT * FROM groups WHERE participant=?", (username,))
         results = cursor.fetchall()
         if results is None:
+            print("exiting")
             return return_list
+        ls_groups = []
         for r in results:
-            return_list.append({"group_name":r[0],"username":username,"aes_key":r[2]})
+            ls_groups.append(r[0])
+            print(r[0])
+
+        for group in ls_groups:
+            return_list.append(get_group_participants(group))
 
         return return_list  
     except Exception as e:
+        print(e)
         return []
 
 DATABASE_MESSAGES = r"Accord_messages.db"
@@ -346,5 +356,16 @@ def erase_msg_timestamp(timestamp:str)->bool:
         print(e)
         return False
 
-#if __name__ == '__main__':
-
+if __name__ == '__main__':
+    import pprint 
+    initialize_groups_database()
+    pprint.pprint(add_group("group1",["a","b","c"],"SIGNATURE","AES_KEY","AES_IV","HMAC","HMAC_IV"))
+    pprint.pprint(add_group("group2",["a","d","g"],"SIGNATURE2","AES_KEY2","AES_IV2","HMAC2","HMAC_IV2"))
+    pprint.pprint(add_group("group3",["v","h","c"],"SIGNATURE3","AES_KEY3","AES_IV3","HMAC3","HMAC_IV3"))
+    pprint.pprint(get_group_participants("group3"))
+    pprint.pprint(get_username_groups("a"))
+    pprint.pprint(get_username_groups("c"))
+    pprint.pprint(add_group("group1",["a","b","c"],"NEWSIGNATURE","NEWAES_KEY","NEWAES_IV","NEWHMAC","NEWHMAC_IV"))
+    pprint.pprint(get_group_participants("group1"))
+    import os
+    os.remove("Accord_groups.db")

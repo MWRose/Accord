@@ -76,12 +76,12 @@ def create_request(kind: str, values: Sequence[Tuple[str, object]]) -> bytes:
     json_data = json.dumps(data, sort_keys=False, indent=2)
     return json_data.encode()
 
-def direct_message(sender: str, recipient: str, msg: str, iv: str, tag: bytes) -> bytes:
-    values = [("sender", sender), ("recipient", recipient), ("message", msg), ("iv", iv), ("tag", tag)]
+def direct_message(sender: str, recipient: str, msg: str, iv: str, timestamp: str, tag: bytes) -> bytes:
+    values = [("sender", sender), ("recipient", recipient), ("message", msg), ("iv", iv), ("timestamp", timestamp), ("tag", tag)]
     return create_request(REQUEST_KIND_DIRECT_MESSAGE, values)
 
-def group_message(sender: str, recipients: str, group_name: str, msg: str, iv: str, tag: bytes) -> bytes:
-    values = [("sender", sender), ("members", recipients), ("group_name", group_name), ("message", msg), ("iv", iv), ("tag", tag)]
+def group_message(sender: str, recipients: str, group_name: str, msg: str, iv: str, timestamp: str, tag: bytes) -> bytes:
+    values = [("sender", sender), ("members", recipients), ("group_name", group_name), ("message", msg), ("iv", iv), ("timestamp", timestamp), ("tag", tag)]
     return create_request(REQUEST_KIND_GROUP_MESSAGE, values)
 
 def login(username: str) -> bytes:
