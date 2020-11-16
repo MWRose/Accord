@@ -165,6 +165,7 @@ class Client:
     def login(self):
         self.username = input("Please enter username: ")
         
+        
         # TODO: Check if username exists in the database (this will probably need to be a send to server)
         try: 
             self.populate_private_key()
