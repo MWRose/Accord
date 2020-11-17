@@ -27,24 +27,28 @@ class CertAuth:
         self.start_ca()
         
     def start_ca(self):   
-        hostname = socket.gethostbyname(socket.gethostname())
+        
         # Get command line arguments and check correctness
         args = sys.argv
         if len(args) != 2:
             print("correct usage: python3 CA.py <port>")
+
+        hostname = socket.gethostbyname(socket.gethostname())
         ca_port = int(args[1])
 
-        self.clients = dict()
-
-        self.s.bind((server_name, ca_port))
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.bind((hostname, ca_port))
         self.s.listen(100)
+
+        self.clients = dict()
 
         print("Running on host: " + str(hostname))
         print("Running on port: " + str(ca_port))
         
         while True:
             print("In while loop in CA")
-            data = self.s.recv(4096)
+            c, addr = self.s.accept()
+            data = c.recv(4096)
 
             request = Requests.parse_request(data)
             print("Received from the client: ", data)
@@ -53,38 +57,29 @@ class CertAuth:
                 print("There was in issue with the received data. Received the following raw data: ", data)
             elif request.is_ca_request():
                 username = request.data["username"]
-                print("New CA request. Username: " + str(username))
+                print("New request. Username: " + str(username))
                 self.clients[username] = c
                 # Communicate with a client on a separate thread
-                threading.Thread(target=self.handle_client, args=(c,username,addr,data,)).start()
+                threading.Thread(target=self.handle_client, args=(c,username,addr,request.data,)).start()
                 
-    def handle_client(self, username, address, data)
-        while True:
-            try:
-                data = c.recv(4096)
-            except:
-                c.shutdown(socket.SHUT_RDWR)
-                del self.clients[username]
-                
-                print(username + " left the room.")
-                self.broadcast(username + " has left the room.")
-
-                break
-
-            if data.decode() != "":
-                self.handle_recipient(data)
-                print("New message: " + str(data.decode()))
-
-    def handle_recipient(self, data):
+    def handle_client(self, c, username, address, data):
         username = data["username"]
-        public_key = data["public_key"]
-        if username not in self.clients:
-            print("Provided username does not match any connected client")
-            return
-        message = username + "," + public_key.decode()
-        ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
-        ca_signature_b64 = base64.b64encode(ca_signature)
-        ca_response = Requests.ca_response(username, public_key_b64, str(ca_signature_b64))
-        self.clients[recipient].send(ca_response)
+        
+        if username in self.clients:
+            public_key_b64 = data["public_key"].encode()[2:-1]
+            public_key = base64.b64decode(public_key_b64)
+            message = username + "," + public_key.decode()
+            ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
+            ca_signature_b64 = base64.b64encode(ca_signature)
+            ca_response = Requests.ca_response_valid(username, data["public_key"], str(ca_signature_b64))
+
+            print("Signed public key for the user: " + username)
+            print("Sending the signature back to the client.")
+
+            self.clients[username].send(ca_response)
+        else:
+            print("Provided username " + username + " does not match any connected client")
+            self.clients[username].send(ca_response)
+
 
 ca = CertAuth()

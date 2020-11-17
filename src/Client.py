@@ -125,14 +125,38 @@ class Client:
                 
                 # Read the key from a file then put it in the data base encrypted
 
-                pub_key_b64 = base64.b64encode(public_key)
+                pub_key_b64 = str(base64.b64encode(public_key))
                 request = Requests.ca_request(self.username, pub_key_b64)
                 self.ca.send(request)
 
+                # Wait for the response from CA containing (username, public_key, signed_public_key)
                 while True:
                     data = self.ca.recv(4096)
                     request = Requests.parse_request(data)
-                    if request.is_account_created():
+                    if len(request.data) == 0:
+                        print("There was in issue with the received data. Received the following raw data: ", data)
+                    elif request.is_ca_response_valid():
+                        print("Received a valid response from CA.")
+                        print("Sending account information to the server.")
+                        username = request.data["username"]
+                        public_key = request.data["public_key"]
+                        ca_signature = request.data["signature"]
+                        request = Requests.create_new_account(username, public_key, ca_signature)
+                        self.s.send(request)
+                        break
+                    elif request.is_ca_response_invalid():
+                        print("CA indicated an invalid request. Please try again with a different username.")
+                        self.create_account()              
+                
+                # When we get to this point, we know CA sent back a valid response and that we sent a request
+                # to the server to create an account. Now we wait for the server to send a confirmation that
+                # the account has been created.
+                while True:
+                    data = self.s.recv(4096)
+                    request = Requests.parse_request(data)
+                    if len(request.data) == 0:
+                        print("There was in issue with the received data. Received the following raw data: ", data)
+                    elif request.is_account_created():
                         print("Account successfully created! Please log in with your new credentials.")
                         break
                     elif request.is_account_not_created():
@@ -140,6 +164,9 @@ class Client:
                         self.create_account()
             else:
                 print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
+        
+        # When we get to this point, we know that the user's account has been created and we prompt the user to login
+        # with their new credentials to proceed.
         self.login()
 
     def login(self):
@@ -226,6 +253,7 @@ class Client:
 
     def create_connection(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.ca = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             # Get command line arguments and check correctness
             args = sys.argv
@@ -504,8 +532,8 @@ class Client:
         f.close()
 
     def populate_private_key(self):
-        info = Database.get_user_accounts(self.username)
-        if info == []:
+        info = Database.get_user_info(self.username)
+        if "private_key" not in info:
             print("Private key not stored")
             return ""
         return (info["private_key"], info["tag"])

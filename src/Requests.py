@@ -7,12 +7,14 @@ REQUEST_KIND_LOGIN = "login"
 REQUEST_KIND_INITIATE_DIRECT_MESSAGE = "initiate_direct"
 REQUEST_KIND_INITIATE_GROUP_CHAT = "initiate_group"
 REQUEST_KIND_CA_REQUEST = "ca_request"
-REQUEST_KIND_CA_RESPONSE = "ca_response"
+REQUEST_KIND_CA_RESPONSE_VALID = "ca_response_valid"
+REQUEST_KIND_CA_RESPONSE_INVALID = "ca_response_invalid"
 REQUEST_KIND_LOGIN_REQUEST = "login_request"
 REQUEST_KIND_LOGIN_RESPONSE = "login_response"
 REQUEST_KIND_ACCOUNT_CREATED = "account_created"
 REQUEST_KIND_ACCOUNT_NOT_CREATED = "account_not_created"
 REQUEST_KIND_BROADCAST = "broadcast"
+REQUEST_KIND_CREATE_NEW_ACCOUNT = "create_new_account"
 
 class Request:
     def __init__(self, data: Dict):
@@ -47,10 +49,13 @@ class Request:
         return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_GROUP_CHAT and "recipients" in self.data and "recipient" in self.data
 
     def is_ca_request(self) -> bool:
-        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_REQUEST and "encrypted" in self.data and "signature" in self.data and "username" in self.data
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_REQUEST and "username" in self.data and "public_key" in self.data
 
-    def is_ca_response(self) -> bool:
-        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE and "username" in self.data and "public_key" in self.data and "signature" in self.data
+    def is_ca_response_valid(self) -> bool:
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE_VALID and "username" in self.data and "public_key" in self.data and "signature" in self.data
+
+    def is_ca_response_invalid(self) -> bool:
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE_INVALID
 
     def is_login_request(self) -> bool:
         return self.is_valid and self.data["kind"] == REQUEST_KIND_LOGIN_REQUEST and "username" in self.data
@@ -66,6 +71,9 @@ class Request:
 
     def is_broadcast(self) -> bool:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_BROADCAST and "message" in self.data
+    
+    def is_create_new_account(self) -> bool:
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_CREATE_NEW_ACCOUNT and "username" in self.data and "public_key" in self.data and "signature" in self.data
 
 def create_request(kind: str, values: Sequence[Tuple[str, object]]) -> bytes:
     data = {
@@ -96,13 +104,21 @@ def initiate_group_chat(requester: str, recipient: str, recipients: str, encrypt
     values = [("requester", requester), ("recipient", recipient), ("recipients", recipients), ("encrypted", encrypted), ("signed", signed), ("group_name", group_name)]
     return create_request(REQUEST_KIND_INITIATE_GROUP_CHAT, values)
 
-def ca_request(aes_key_encrypted: bytes, aes_key_signed: bytes, iv: bytes, encrypted: bytes, signature: bytes, username: str) -> bytes:
-    values = [("aes_key_encrypted", aes_key_encrypted), ("aes_key_signed", aes_key_signed), ("iv", iv), ("encrypted", encrypted), ("signature", signature), ("username", username)]
+def ca_request(username: str, public_key)  -> bytes:
+    values = [("username", username), ("public_key", public_key)]
     return create_request(REQUEST_KIND_CA_REQUEST, values)
 
-def ca_response(username: str, public_key: str, signature: bytes) -> bytes:
+def ca_response_valid(username: str, public_key: str, signature: bytes) -> bytes:
     values = [("username", username), ("public_key", public_key), ("signature", signature)]
-    return create_request(REQUEST_KIND_CA_RESPONSE, values)
+    return create_request(REQUEST_KIND_CA_RESPONSE_VALID, values)
+
+def ca_response_invalid():
+    values = []
+    return create_request(REQUEST_KIND_CA_RESPONSE_INVALID, values)
+
+def create_new_account(username: str, public_key: str, signature: bytes):
+    values = [("username", username), ("public_key", public_key), ("signature", signature)]
+    return create_request(REQUEST_KIND_CREATE_NEW_ACCOUNT, values)
 
 def login_request(username: str) -> bytes:
     values = [("username", username)]

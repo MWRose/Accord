@@ -59,10 +59,26 @@ class Server:
                 self.broadcast(username + " has entered the chat.")
                 self.clients[username] = c
                 threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
-        
+            elif request.is_create_new_account():
+                threading.Thread(target=self.create_account,args=(c,request.data,)).start()
+                
     def broadcast(self, msg):
         for connection in self.clients.values():
             connection.send(Requests.broadcast(msg))
+
+    def create_account(self, c, data):
+        username = data["username"]	
+        public_key = data["public_key"]	
+        ca_signature = data["signature"]	
+
+        if (not Database.check_user(username)):	
+            Database.add_user_info(username, public_key, ca_signature)	
+            request = Requests.account_created()	
+            c.send(request)	
+        else:	
+            request = Requests.account_not_created()	
+            c.send(request)	
+            print("Could not create an account. The provided username is taken.")
 
     def handle_client(self,c,username,addr):
         while True:
