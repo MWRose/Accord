@@ -176,11 +176,11 @@ class Client:
         # TODO: change populate private key to check if username exists, get rid of this try except block
         try: 
             self.populate_private_key()
-                    # Receive information that is stored in the database
-            contacts = Database.get_user_contact_info(self.username)
             password = input("Please enter your password: ")
             self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
-            # print(contacts)
+
+            # Receive contact information that is stored in the database
+            contacts = Database.get_user_contact_info(self.username)
             for contact in contacts:
                 # print(contact)
 
@@ -215,7 +215,59 @@ class Client:
                     print("Incorrect Decryption")
                 
 
-                # TODO: Add functionality to save the public_keys in the future
+                # Reveive group information that is stored in the database
+
+                groups = Database.get_username_groups(self.username)
+                for contact in groups:
+
+                    # Get information from database line
+                    group_name = contact["group_name"]
+                    recipient = contact["participant"]
+                    enc_aes_b64 = contact["aes_key"].encode()[2:-1]
+                    enc_aes = base64.b64decode(enc_aes_b64)
+                    enc_hmac_b64 = contact["hmac_key"].encode()[2:-1]
+                    enc_hmac = base64.b64decode(enc_hmac_b64)
+                    signed_b64 = contact["signature"].encode()[2:-1]
+                    signed = base64.b64decode(signed_b64)
+                    iv_aes_b64 = contact["aes_iv"].encode()[2:-1]
+                    iv_aes = base64.b64decode(iv_aes_b64)
+                    iv_hmac_b64 = contact["hmac_iv"].encode()[2:-1]
+                    iv_hmac = base64.b64decode(iv_hmac_b64)
+
+                    # Check the signature
+                    signature_contents = self.username + recipient + contact["aes_key"] + contact["hmac_key"] + contact["aes_iv"] + contact["hmac_iv"]
+                    if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
+                        print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
+                        self.login()
+                        return
+
+                    # Decrypt keys
+                    try:
+                        aes_key = Crypto_Functions.aes_decrypt(enc_aes, iv_aes, self.password_aes)
+                        aes_key = base64.b64decode(aes_key.encode()[2:-1])
+                        hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
+                        hmac_key = base64.b64decode(hmac_key.encode()[2:-1])
+
+                        # Make sure group has been added to group dict
+                        if group_name not in self.groups:
+                            self.groups[group_name] = {}
+                        
+                        # Group has already been added to groups dict
+                        self.groups[group_name]["aes_key"] = aes_key
+                        self.groups[group_name]["hmac_key"] = hmac_key
+
+                        # Member list already created and current recipient not in it
+                        if "members" in self.groups[group_name] and recipient not in self.groups[group_name]:
+                            self.groups[group_name]["members"].append(recipient)
+                        
+                        # If the user isn't in list add them to a new list
+                        elif recipient not in self.groups[group_name]:
+                            self.group[group_name]["members"] = [recipient]
+
+                    except:
+                        print("Incorrect Decryption")
+
+                    
 
             request = Requests.login(self.username)
             self.s.send(request)
@@ -387,10 +439,36 @@ class Client:
                     self.groups[self.group_name]["aes_key"] = keys["aes"]
                     self.groups[self.group_name]["hmac_key"] = keys["hmac"]
 
-                    ### --- Update the database --- ###
-                    # TODO
+                ### --- Update the database --- ### TODO: Probably should migrate this to above loop
 
+                email = self.username
+                group_aes = base64.b64encode(self.groups[self.group_name]["aes_key"])
+                enc_group_aes, iv_aes = Crypto_Functions.aes_encrypt(str(group_aes), self.password_aes)
+                enc_group_aes = str(base64.b64encode(enc_group_aes))
+                iv_aes = str(base64.b64encode(iv_aes))
 
+                # Get encrypted hmac under self.password_aes
+                hmac_key = base64.b64encode(self.groups[self.group_name]["hmac_key"])
+                enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(str(hmac_key), self.password_aes)
+                enc_hmac_key = str(base64.b64encode(enc_hmac_key))
+                iv_hmac = str(base64.b64encode(iv_hmac))
+
+                for member in self.group_members:
+                    contact = member
+
+                    # Create the signature
+                    signature_contents = email + contact + enc_group_aes + enc_hmac_key + iv_aes + iv_hmac
+                    signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
+
+                    Database.add_group(
+                        self.group_name,
+                        member,
+                        signature,
+                        enc_group_aes,
+                        iv_aes,
+                        enc_hmac_key,
+                        iv_hmac
+                    )
 
         else:
             print("Enter valid response: group or direct")
@@ -456,7 +534,35 @@ class Client:
                 self.groups[group_name] = {"aes_key": aes_key, "hmac_key": hmac_key, "members": members}
 
                 ### --- Update the Database --- ###
-                # TODO
+                email = self.username
+
+                # Get encrypted aes under self.password_aes
+                group_aes = str(base64.b64encode(aes_key))
+                enc_goup_aes = iv_aes = Crypto_Functions.aes_encrypt(group_aes, self.password_aes)
+                enc_goup_aes = str(base64.b64encode(enc_goup_aes))
+                iv_aes = str(base64.b64encode(iv_aes))
+
+                # get encrypted hmac under self.password_aes
+                hmac_key = str(base64.b64encode(hmac_key))
+                enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(hmac_key, self.password_aes)
+                enc_hmac_key = str(base64.b64encode(enc_hmac_key))
+                iv_hmac = str(base64.b64encode(iv_hmac))
+
+                # Add line for each member
+                for member in members:
+                    contact = member
+                    signature_contents = email + contact + enc_goup_aes + enc_hmac_key + iv_aes + iv_hmac
+                    signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
+
+                    Database.add_group(
+                        group_name,
+                        contact,
+                        signature,
+                        enc_goup_aes,
+                        iv_aes,
+                        enc_hmac_key,
+                        iv_hmac
+                    )
 
             elif request.is_initiate_direct_message():
                 requester = request.data["requester"]
