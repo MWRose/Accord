@@ -7,7 +7,9 @@ import Requests
 import Crypto_Functions
 import base64
 import threading
+import CA_Database
 from pyfiglet import Figlet
+
 
 class CertAuth:
     def __init__(self):
@@ -24,8 +26,11 @@ class CertAuth:
         self.public_key = f.read()
         f.close()
 
+        CA_Database.initialize_database()
+
         self.start_ca()
         
+
     def start_ca(self):   
         
         # Get command line arguments and check correctness
@@ -64,8 +69,15 @@ class CertAuth:
                 
     def handle_client(self, c, username, address, data):
         username = data["username"]
-        
-        if username in self.clients:
+    
+        # Assume CA should respond that the request was invalid.
+        # Gets overwritten only in case the username is not in the CA database
+        # and it is in the clients dictionary.
+        ca_response = Requests.ca_response_invalid()
+
+        if CA_Database.username_exists(username):
+            print("Username " + username + " exists in the CA database.")    
+        elif username in self.clients:
             public_key_b64 = data["public_key"].encode()[2:-1]
             public_key = base64.b64decode(public_key_b64)
             message = username + "," + public_key.decode()
@@ -74,12 +86,14 @@ class CertAuth:
             ca_response = Requests.ca_response_valid(username, data["public_key"], str(ca_signature_b64))
 
             print("Signed public key for the user: " + username)
-            print("Sending the signature back to the client.")
 
-            self.clients[username].send(ca_response)
+            print("Adding user info to the CA database.")
+            CA_Database.add_user(username, data["public_key"], str(ca_signature_b64))
+
+            print("Sending the signature back to the client.")
         else:
             print("Provided username " + username + " does not match any connected client")
-            self.clients[username].send(ca_response)
+        self.clients[username].send(ca_response)
 
 
 ca = CertAuth()
