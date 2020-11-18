@@ -340,7 +340,10 @@ class Client:
             ca_port = int(args[3])	
 
             self.s.connect((hostname, server_port))	
-            self.ca.connect((hostname, ca_port))	
+            self.ca.connect((hostname, ca_port))
+
+            request = Requests.establish_connection()
+            self.s.send(request)	
         except:	
             print("Couldn't connect to server, please type in valid host name and port.")
 
