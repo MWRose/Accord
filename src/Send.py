@@ -91,8 +91,8 @@ def send_direct(sender, recipient, contacts, message, s):
 
     # Create message tag on encypted data
     timestamp = str(datetime.datetime.now().timestamp())
-    tag_contents = str(base64.b64encode(enc_msg))
-    tag = Crypto_Functions.hmac(tag_contents.encode(), hmac_key)
+    tag_contents = str(base64.b64encode(enc_msg)) + timestamp
+    tag = Crypto_Functions.hmac_b64(tag_contents.encode(), hmac_key)
 
     # Encoding
     enc_msg_b64 = base64.b64encode(enc_msg)

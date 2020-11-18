@@ -69,8 +69,9 @@ def receive_group(data, groups):
     
     # Check tag
     tag = data["tag"]
-    tag_contents = str(base64.b64encode(enc_msg))
-    valid = Crypto_Functions.check_hmac(tag_contents.encode(), tag, hmac_key)
+    tag = base64.b64decode(tag.encode()[2:-1])
+    tag_contents = str(base64.b64encode(enc_msg)) + msg_timestamp
+    valid = Crypto_Functions.check_hmac_b64(tag_contents.encode(), tag, hmac_key)
     if not valid:
         raise Exception("Tag not valid")
 

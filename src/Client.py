@@ -65,7 +65,7 @@ class Client:
                     self.populate_private_key()
                     self.create_connection()
                     strong_password = True
-                else: 
+                else: 5csmDAuI1mQK
                     print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
     '''
 
@@ -658,7 +658,7 @@ class Client:
         if not Crypto_Functions.check_hmac_b64(tag_contents.encode(), tag, self.password_hmac):
             self.private_key = b""
             return False
-
+        print(self.password_aes)
         private_key_b64 = Crypto_Functions.aes_decrypt(private_key_enc, iv, self.password_aes)
         private_key = base64.b64decode(private_key_b64.encode()[2:-1])
 

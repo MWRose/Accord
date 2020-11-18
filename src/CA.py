@@ -67,33 +67,23 @@ class CertAuth:
                 # Communicate with a client on a separate thread
                 threading.Thread(target=self.handle_client, args=(c,username,addr,request.data,)).start()
                 
-    def handle_client(self, c, username, address, data):
-        username = data["username"]
-    
-        # Assume CA should respond that the request was invalid.
-        # Gets overwritten only in case the username is not in the CA database
-        # and it is in the clients dictionary.
-        ca_response = Requests.ca_response_invalid()
-
+    def handle_client(self, c, username, address, data):   
         if CA_Database.username_exists(username):
-            print("Username " + username + " exists in the CA database.")    
-        elif username in self.clients:
+            print("Username " + username + " exists in the CA database.")
+            ca_response = Requests.ca_response_invalid()
+            self.clients[username].send(ca_response)
+        else:
             public_key_b64 = data["public_key"].encode()[2:-1]
             public_key = base64.b64decode(public_key_b64)
             message = username + "," + public_key.decode()
             ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
             ca_signature_b64 = base64.b64encode(ca_signature)
             ca_response = Requests.ca_response_valid(username, data["public_key"], str(ca_signature_b64))
-
             print("Signed public key for the user: " + username)
-
             print("Adding user info to the CA database.")
             CA_Database.add_user(username, data["public_key"], str(ca_signature_b64))
-
             print("Sending the signature back to the client.")
-        else:
-            print("Provided username " + username + " does not match any connected client")
-        self.clients[username].send(ca_response)
-
+            self.clients[username].send(ca_response)
+            
 
 ca = CertAuth()
