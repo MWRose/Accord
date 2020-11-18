@@ -79,6 +79,7 @@ class Server:
             request = Requests.account_not_created()	
             c.send(request)	
             print("Could not create an account. The provided username is taken.")
+        c.shutdown(socket.SHUT_RDWR)
 
     def handle_client(self,c,username,addr):
         while True:

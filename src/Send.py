@@ -71,7 +71,7 @@ def send_group_message(message, sender, group_name, s, group_members, groups):
     # Create message tag on encypted data
     timestamp = str(datetime.datetime.now().timestamp())
     tag_contents = str(base64.b64encode(enc_msg)) + timestamp
-    tag = Crypto_Functions.hmac(tag_contents.encode(), hmac_key)
+    tag = Crypto_Functions.hmac_b64(tag_contents.encode(), hmac_key)
 
     # Encoding
     enc_msg_b64 = base64.b64encode(enc_msg)
@@ -79,7 +79,7 @@ def send_group_message(message, sender, group_name, s, group_members, groups):
 
     
 
-    s.send(Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), timestamp, tag))
+    s.send(Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), timestamp, str(tag)))
 
 def send_direct(sender, recipient, contacts, message, s):
     # Get keys
@@ -91,7 +91,7 @@ def send_direct(sender, recipient, contacts, message, s):
 
     # Create message tag on encypted data
     timestamp = str(datetime.datetime.now().timestamp())
-    tag_contents = str(base64.b64encode(enc_msg)) + timestamp
+    tag_contents = str(base64.b64encode(enc_msg))
     tag = Crypto_Functions.hmac(tag_contents.encode(), hmac_key)
 
     # Encoding

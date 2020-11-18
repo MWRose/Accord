@@ -1,3 +1,4 @@
+from sqlite3.dbapi2 import Timestamp
 import Crypto_Functions
 import base64
 import Requests
@@ -23,15 +24,16 @@ def receive_direct(data, contacts):
     msg_timestamp = data["timestamp"]
     current_timestamp = datetime.datetime.now().timestamp()
 
-    # Check if the timestamp is accurate
-    # if current_timestamp - int(msg_timestamp) > 20:
-    #     print("Large difference in time sent and time recieved... returning")
-    #     return
+    # Check if the timestamp is accurate. If exceeds 20 seconds, then is deemed a replay
+    if current_timestamp - float(msg_timestamp) > 20:
+        print("Large difference in time sent and time recieved. Message was not received.")
+        return
 
     # Check tag
     tag = data["tag"]
+    tag = base64.b64decode(tag.encode()[2:-1])
     tag_contents = str(base64.b64encode(enc_msg)) + msg_timestamp
-    valid = Crypto_Functions.check_hmac(tag_contents.encode(), tag, hmac_key)
+    valid = Crypto_Functions.check_hmac_b64(tag_contents.encode(), tag, hmac_key)
     if not valid:
         raise Exception("HMAC not valid")
 
@@ -61,16 +63,16 @@ def receive_group(data, groups):
     current_timestamp = datetime.datetime.now().timestamp()
 
     # Check if the timestamp is accurate
-    # if current_timestamp - int(msg_timestamp) > 20:
-    #     print("Large difference in time sent and time recieved... returning")
-    #     return
+    if current_timestamp - float(msg_timestamp) > 20:
+        print("Large difference in time sent and time recieved. Message was not received.")
+        return
     
     # Check tag
     tag = data["tag"]
-    tag_contents = str(base64.b64encode(enc_msg)) + msg_timestamp
+    tag_contents = str(base64.b64encode(enc_msg))
     valid = Crypto_Functions.check_hmac(tag_contents.encode(), tag, hmac_key)
     if not valid:
-        raise Exception("AHHHH")
+        raise Exception("Tag not valid")
 
     # Decrypt message
     decrypted_msg = Crypto_Functions.aes_decrypt(enc_msg, iv, aes_key)
@@ -90,6 +92,8 @@ def receive_direct_handshake(data, contacts, sender_public_key, recipient_privat
     signature_contents = (sender + recipient + str(encrypted_b64)).encode()
     if not Crypto_Functions.rsa_check_sign(signature_contents, signed, sender_public_key):
         print("Invalid signature")
+        return {}
+        
     else:
         # Parse encrpyted message
         decrypted_msg = Crypto_Functions.rsa_decrypt(encrypted, recipient_private_key)
@@ -105,7 +109,7 @@ def receive_direct_handshake(data, contacts, sender_public_key, recipient_privat
         # Transform key into two keys
         aes_key, hmac_key = Crypto_Functions.hash_keys(key)
     
-    return {"aes":aes_key, "hmac": hmac_key}
+        return {"aes":aes_key, "hmac": hmac_key}
 
 
 def receive_group_handshake(data,sender,groups,contacts,private_key):

@@ -3,6 +3,7 @@ import socket
 import threading
 from pyfiglet import Figlet
 import Crypto_Functions
+from Crypto_Functions import hmac_b64
 import Send
 import Receive
 import Requests
@@ -25,7 +26,7 @@ class Client:
         self.recipient = ""        # Direct message recipient
         self.group_name = ""       # Group message name
         self.group_members = []    # Names of members of the group
-        self.private_key = ""      # Private key for the client
+        self.private_key = b""      # Private key for the client
         self.public_keys = {}      # Public keys for other clients TODO: Remove
         self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
         self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
@@ -107,10 +108,11 @@ class Client:
 
         strong_password = False
         while not strong_password:
-            self.password = input("Create new password: ")
-            passwordChecker = PasswordChecker(self.password)
+            password = input("Create new password: ")
+            passwordChecker = PasswordChecker(password)
             if(passwordChecker.password_checker()):
                 strong_password = True
+                self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
 
                 #Database.add_user_info(self.username, self.password)
                 Gen.generate_key_pair(self.username)
@@ -142,6 +144,23 @@ class Client:
                         public_key = request.data["public_key"]
                         ca_signature = request.data["signature"]
                         request = Requests.create_new_account(username, public_key, ca_signature)
+
+                        private_key_b64 = base64.b64encode(self.private_key)
+                        enc_private_key, aes_iv = Crypto_Functions.aes_encrypt(str(private_key_b64), self.password_aes)
+                        enc_private_key_b64 = base64.b64encode(enc_private_key)
+                        aes_iv_b64 = base64.b64encode(aes_iv)
+
+                        tag_contents = str(enc_private_key_b64) + str(aes_iv_b64)
+                        hmac = Crypto_Functions.hmac_b64(tag_contents.encode(), self.password_hmac)
+                        hmac_b64 = hmac
+
+                        Database.add_user_account(
+                            self.username,
+                            str(enc_private_key_b64),
+                            str(aes_iv_b64),
+                            str(hmac_b64)
+                        )
+                        
                         self.s.send(request)
                         break
                     elif request.is_ca_response_invalid():
@@ -171,34 +190,69 @@ class Client:
 
     def login(self):
         self.username = input("Please enter username: ")
-        
-        
-        # TODO: change populate private key to check if username exists, get rid of this try except block
-        try: 
-            self.populate_private_key()
-            password = input("Please enter your password: ")
-            self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
+        password = input("Please enter your password: ")
+        self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
+        if not self.populate_private_key():
+            return
 
-            # Receive contact information that is stored in the database
-            contacts = Database.get_user_contact_info(self.username)
-            for contact in contacts:
-                # print(contact)
+        
+        # Receive contact information that is stored in the database
+        contacts = Database.get_user_contact_info(self.username)
+        for contact in contacts:
+            # print(contact)
 
-                # Get contact info
-                recipient = contact["contact"]
-                enc_aes_b64 = contact["contact_aes"].encode()[2:-1]
+            # Get contact info
+            recipient = contact["contact"]
+            enc_aes_b64 = contact["contact_aes"].encode()[2:-1]
+            enc_aes = base64.b64decode(enc_aes_b64)
+            enc_hmac_b64 = contact["hmac_key"].encode()[2:-1]
+            enc_hmac = base64.b64decode(enc_hmac_b64)
+            signed_b64 = contact["signature"].encode()[2:-1]
+            signed = base64.b64decode(signed_b64)
+            iv_aes_b64 = contact["iv_aes"].encode()[2:-1]
+            iv_aes = base64.b64decode(iv_aes_b64)
+            iv_hmac_b64 = contact["iv_hmac"].encode()[2:-1]
+            iv_hmac = base64.b64decode(iv_hmac_b64)
+
+            # Check signature
+            signature_contents = self.username + recipient + contact["contact_aes"] + contact["hmac_key"] + contact["iv_aes"] + contact["iv_hmac"]
+            if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
+                print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
+                self.login()
+                return
+
+            # Decrypt keys
+            try:
+                aes_key = Crypto_Functions.aes_decrypt(enc_aes, iv_aes, self.password_aes)
+                aes_key = base64.b64decode(aes_key.encode()[2:-1])
+                hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
+                hmac_key = base64.b64decode(hmac_key.encode()[2:-1])
+                self.contacts[recipient] = {"aes_key": aes_key, "hmac_key": hmac_key}
+            except:
+                print("Incorrect Decryption")
+            
+
+            # Reveive group information that is stored in the database
+
+            groups = Database.get_username_groups(self.username)
+            for contact in groups:
+
+                # Get information from database line
+                group_name = contact["group_name"]
+                recipient = contact["participant"]
+                enc_aes_b64 = contact["aes_key"].encode()[2:-1]
                 enc_aes = base64.b64decode(enc_aes_b64)
                 enc_hmac_b64 = contact["hmac_key"].encode()[2:-1]
                 enc_hmac = base64.b64decode(enc_hmac_b64)
                 signed_b64 = contact["signature"].encode()[2:-1]
                 signed = base64.b64decode(signed_b64)
-                iv_aes_b64 = contact["iv_aes"].encode()[2:-1]
+                iv_aes_b64 = contact["aes_iv"].encode()[2:-1]
                 iv_aes = base64.b64decode(iv_aes_b64)
-                iv_hmac_b64 = contact["iv_hmac"].encode()[2:-1]
+                iv_hmac_b64 = contact["hmac_iv"].encode()[2:-1]
                 iv_hmac = base64.b64decode(iv_hmac_b64)
 
-                # Check signature
-                signature_contents = self.username + recipient + contact["contact_aes"] + contact["hmac_key"] + contact["iv_aes"] + contact["iv_hmac"]
+                # Check the signature
+                signature_contents = self.username + recipient + contact["aes_key"] + contact["hmac_key"] + contact["aes_iv"] + contact["hmac_iv"]
                 if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
                     print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
                     self.login()
@@ -210,82 +264,32 @@ class Client:
                     aes_key = base64.b64decode(aes_key.encode()[2:-1])
                     hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
                     hmac_key = base64.b64decode(hmac_key.encode()[2:-1])
-                    self.contacts[recipient] = {"aes_key": aes_key, "hmac_key": hmac_key}
+
+                    # Make sure group has been added to group dict
+                    if group_name not in self.groups:
+                        self.groups[group_name] = {}
+                    
+                    # Group has already been added to groups dict
+                    self.groups[group_name]["aes_key"] = aes_key
+                    self.groups[group_name]["hmac_key"] = hmac_key
+
+                    # Member list already created and current recipient not in it
+                    if "members" in self.groups[group_name] and recipient not in self.groups[group_name]:
+                        self.groups[group_name]["members"].append(recipient)
+                    
+                    # If the user isn't in list add them to a new list
+                    elif recipient not in self.groups[group_name]:
+                        self.group[group_name]["members"] = [recipient]
+
                 except:
                     print("Incorrect Decryption")
-                
-
-                # Reveive group information that is stored in the database
-
-                groups = Database.get_username_groups(self.username)
-                for contact in groups:
-
-                    # Get information from database line
-                    group_name = contact["group_name"]
-                    recipient = contact["participant"]
-                    enc_aes_b64 = contact["aes_key"].encode()[2:-1]
-                    enc_aes = base64.b64decode(enc_aes_b64)
-                    enc_hmac_b64 = contact["hmac_key"].encode()[2:-1]
-                    enc_hmac = base64.b64decode(enc_hmac_b64)
-                    signed_b64 = contact["signature"].encode()[2:-1]
-                    signed = base64.b64decode(signed_b64)
-                    iv_aes_b64 = contact["aes_iv"].encode()[2:-1]
-                    iv_aes = base64.b64decode(iv_aes_b64)
-                    iv_hmac_b64 = contact["hmac_iv"].encode()[2:-1]
-                    iv_hmac = base64.b64decode(iv_hmac_b64)
-
-                    # Check the signature
-                    signature_contents = self.username + recipient + contact["aes_key"] + contact["hmac_key"] + contact["aes_iv"] + contact["hmac_iv"]
-                    if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
-                        print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
-                        self.login()
-                        return
-
-                    # Decrypt keys
-                    try:
-                        aes_key = Crypto_Functions.aes_decrypt(enc_aes, iv_aes, self.password_aes)
-                        aes_key = base64.b64decode(aes_key.encode()[2:-1])
-                        hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
-                        hmac_key = base64.b64decode(hmac_key.encode()[2:-1])
-
-                        # Make sure group has been added to group dict
-                        if group_name not in self.groups:
-                            self.groups[group_name] = {}
-                        
-                        # Group has already been added to groups dict
-                        self.groups[group_name]["aes_key"] = aes_key
-                        self.groups[group_name]["hmac_key"] = hmac_key
-
-                        # Member list already created and current recipient not in it
-                        if "members" in self.groups[group_name] and recipient not in self.groups[group_name]:
-                            self.groups[group_name]["members"].append(recipient)
-                        
-                        # If the user isn't in list add them to a new list
-                        elif recipient not in self.groups[group_name]:
-                            self.group[group_name]["members"] = [recipient]
-
-                    except:
-                        print("Incorrect Decryption")
 
                     
 
             request = Requests.login(self.username)
             self.s.send(request)
             self.loggedin = True
-        except OSError as e: 
-            while(True):
-                is_new = input("The username you typed does not exist. Would you like to create a new account?")
-                if (is_new == "yes" or is_new == "y"):
-                    self.create_account()
-                    break
-                elif (is_new == "no" or is_new == "n"):
-                    self.login()
-                    break
-                else:
-                    print("Please type yes or no.")
 
-
-    
         # request = Requests.login_request(self.username)
         # self.s.send(request)
 
@@ -638,11 +642,51 @@ class Client:
         f.close()
 
     def populate_private_key(self):
-        info = Database.get_user_info(self.username)
+        info = Database.get_user_account(self.username)
         if "private_key" not in info:
             print("Private key not stored")
-            return ""
-        return (info["private_key"], info["tag"])
+            self.private_key = b""
+            # TODO: Handle username DNE 
+            while(True):
+                is_new = input("The username you typed does not exist. Would you like to create a new account?")
+                if (is_new == "yes" or is_new == "y"):
+                    self.create_account()
+                    break
+                elif (is_new == "no" or is_new == "n"):
+                    self.login()
+                    break
+                else:
+                    print("Please type yes or no.")
+
+            return False
+
+        private_key_enc = base64.b64decode(info["private_key"].encode()[2:-1])
+        iv = base64.b64decode(info["aes_iv"].encode()[2:-1])
+        tag = base64.b64decode(info["tag"].encode()[2:-1])
+        tag_contents = info["private_key"] + info["aes_iv"]
+        if not Crypto_Functions.check_hmac_b64(tag_contents.encode(), tag, self.password_hmac):
+            
+            print("Account was not verified, check password")
+            self.private_key = b""
+            # TODO: Handle username DNE 
+            while(True):
+                is_new = input("Password not verified. Would you like to create a new account?")
+                if (is_new == "yes" or is_new == "y"):
+                    self.create_account()
+                    break
+                elif (is_new == "no" or is_new == "n"):
+                    self.login()
+                    break
+                else:
+                    print("Please type yes or no.")
+
+            return False
+
+        private_key_b64 = Crypto_Functions.aes_decrypt(private_key_enc, iv, self.password_aes)
+        private_key = base64.b64decode(private_key_b64.encode()[2:-1])
+
+        self.private_key = private_key
+        return True
 
 
 client = Client()
