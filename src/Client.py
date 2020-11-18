@@ -205,6 +205,19 @@ class Client:
         contacts = Database.get_user_contact_info(self.username)
         for contact in contacts:
             # print(contact)
+            # Ensure necesary information is there
+            keys = ("contact", "contact_aes", "hmac_key", "signature", "iv_aes", "iv_hmac")
+            invalid = False
+            if not all(key in keys for key in contact):  # Make sure all the keys are present
+                print("Not all fields in contact return")
+                invalid = True
+            
+            for key in keys:
+                if not contact[key]:  # Make sure each entry has a value
+                    print("Not all fields in contact return")
+                    invalid = True
+            if invalid:
+                continue
 
             # Get contact info
             recipient = contact["contact"]
@@ -238,13 +251,22 @@ class Client:
             
 
             # Reveive group information that is stored in the database
-
             groups = Database.get_username_groups(self.username)
             for contact in groups:
                 
                 # Ensure necesary information is there
-                ("group_name", "participant")
-
+                keys = ("group_name", "participant", "aes_key", "hmac_key", "signature", "aes_iv", "hmac_iv")
+                invalid = False
+                if not all(key in keys for key in contact):  # Make sure all the keys are present
+                    print("Not all fields in contact return")
+                    invalid = True
+                
+                for key in keys:
+                    if not contact[key]:  # Make sure each entry has a value
+                        print("Not all fields in contact return")
+                        invalid = True
+                if invalid:
+                    continue
 
                 # Get information from database line
                 group_name = contact["group_name"]
@@ -297,18 +319,6 @@ class Client:
         self.s.send(request)
         self.loggedin = True
 
-        # request = Requests.login_request(self.username)
-        # self.s.send(request)
-
-        # while True:
-        #     data = self.s.recv(2048)
-        #     request = Requests.parse_request(data)
-
-        #     # Wait for the login response
-        #     if request.is_login_response():
-        #         #TODO: Parse the response and populate the correct dictionaries
-        #         print("todo")
-        #     break
 
     def sign_off(self):
         # TODO
@@ -624,9 +634,14 @@ class Client:
         info = Database.get_user_info(username)
 
         # Check if it exists and fields are correct
-        if info == {} or "user" not in info or "public_key" not in info or "ca_signature" not in info:
+        keys = ("user", "public_key", "ca_signature")
+        if info == {} or not all(key in keys for key in info):
             print("The user you requested was not found in the database")
             return
+        for key in keys:
+            if not info[key]:
+                print("A public key value is missing")
+                return
 
         public_key_b64 = info["public_key"].encode()[2:-1]
         ca_signature_b64 = info["ca_signature"].encode()[2:-1]
