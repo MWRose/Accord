@@ -136,7 +136,7 @@ def broadcast(message: str) -> bytes:
     values = [("message", message)]
     return create_request(REQUEST_KIND_BROADCAST, values)
 
-def establish_connection(message: str) -> bytes:
+def establish_connection() -> bytes:
     values = []
     return create_request(REQUEST_KIND_ESTABLISH_CONNECTION, values)   
 

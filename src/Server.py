@@ -75,7 +75,7 @@ class Server:
             c.send(request)	
             print("Could not create an account. The provided username is taken.")
 
-    def handle_client(self,c,username,addr):
+    def handle_client(self,c,addr):
         while True:
             try:
                 data = c.recv(4096)
@@ -90,7 +90,7 @@ class Server:
         if len(request.data) == 0:
             print("There was in issue with the received data. Received the following raw data: ", data)
         if request.is_create_new_account():
-            self.create_new_account(c, data)
+            self.create_new_account(c, request.data)
         if request.is_login():
             username = request.data["username"]
             print("New connection. Username: " + str(username))
