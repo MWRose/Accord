@@ -241,6 +241,10 @@ class Client:
 
             groups = Database.get_username_groups(self.username)
             for contact in groups:
+                
+                # Ensure necesary information is there
+                ("group_name", "participant")
+
 
                 # Get information from database line
                 group_name = contact["group_name"]
@@ -619,8 +623,8 @@ class Client:
         # Get the public key from the data base
         info = Database.get_user_info(username)
 
-        # Check if it exists
-        if info is None:
+        # Check if it exists and fields are correct
+        if info == {} or "user" not in info or "public_key" not in info or "ca_signature" not in info:
             print("The user you requested was not found in the database")
             return
 
