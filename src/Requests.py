@@ -72,6 +72,9 @@ class Request:
     def is_create_new_account(self) -> bool:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_CREATE_NEW_ACCOUNT and "username" in self.data and "public_key" in self.data and "signature" in self.data
 
+    def is_establish_connection(self) -> bool:
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_ESTABLISH_CONNECTION
+
 def create_request(kind: str, values: Sequence[Tuple[str, object]]) -> bytes:
     data = {
         "kind": kind
