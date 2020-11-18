@@ -14,6 +14,7 @@ REQUEST_KIND_ACCOUNT_CREATED = "account_created"
 REQUEST_KIND_ACCOUNT_NOT_CREATED = "account_not_created"
 REQUEST_KIND_BROADCAST = "broadcast"
 REQUEST_KIND_CREATE_NEW_ACCOUNT = "create_new_account"
+REQUEST_KIND_ESTABLISH_CONNECTION = "establish_connection"
 
 class Request:
     def __init__(self, data: Dict):
@@ -131,6 +132,10 @@ def account_not_created():
 def broadcast(message: str) -> bytes:
     values = [("message", message)]
     return create_request(REQUEST_KIND_BROADCAST, values)
+
+def establish_connection(message: str) -> bytes:
+    values = []
+    return create_request(REQUEST_KIND_ESTABLISH_CONNECTION, values)   
 
 def parse_request(request: bytes) -> Request:
     try:

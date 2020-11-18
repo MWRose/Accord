@@ -54,19 +54,14 @@ class Server:
             print(request.data)
             if len(request.data) == 0:
                 print("There was in issue with the received data. Received the following raw data: ", data)
-            elif request.is_login():
-                username = request.data["username"]
-                print("New connection. Username: " + str(username))
-                self.broadcast(username + " has entered the chat.")
-                threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
-            elif request.is_create_new_account():
-                threading.Thread(target=self.handle_new_client,args=(c,addr,request.data,)).start()
+            elif request.is_establish_connection():
+                threading.Thread(target=self.handle_client,args=(c,addr,)).start()
                 
     def broadcast(self, msg):
         for connection in self.clients.values():
             connection.send(Requests.broadcast(msg))
 
-    def handle_new_client(self, c, addr, data):
+    def create_new_account(self, c, data):
         username = data["username"]	
         public_key = data["public_key"]	
         ca_signature = data["signature"]	
@@ -75,9 +70,6 @@ class Server:
             Database.add_user_info(username, public_key, ca_signature)	
             request = Requests.account_created()	
             c.send(request)
-            self.broadcast(username + " has entered the chat.")
-            self.clients[username] = c
-            self.handle_client(c, username, addr)
         else:	
             request = Requests.account_not_created()	
             c.send(request)	
@@ -89,19 +81,21 @@ class Server:
                 data = c.recv(4096)
             except:
                 c.shutdown(socket.SHUT_RDWR)
-                del self.clients[username]
-                
-                print(username + " left the room.")
-                self.broadcast(username + " has left the room.")
-
                 break
 
-            if data.decode() != "":
-                self.handle_recipient(data)
-                print("New message: " + str(data.decode()))
+            self.handle_recipient(data, c)
 
-    def handle_recipient(self, data):
+    def handle_recipient(self, data, c):
         request = Requests.parse_request(data)
+        if len(request.data) == 0:
+            print("There was in issue with the received data. Received the following raw data: ", data)
+        if request.is_create_new_account():
+            self.create_new_account(c, data)
+        if request.is_login():
+            username = request.data["username"]
+            print("New connection. Username: " + str(username))
+            self.broadcast(username + " has entered the chat.")                
+            self.clients[username] = c
         if request.is_initiate_direct_message():
             # Initiate new chat between 2 connections
             recipient = request.data["recipient"]

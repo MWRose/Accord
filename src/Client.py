@@ -130,66 +130,46 @@ class Client:
                 pub_key_b64 = str(base64.b64encode(public_key))
                 request = Requests.ca_request(self.username, pub_key_b64)
 
-                ca_signed = False
-                
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as ca:
-                    try:
-                        print(self.hostname, self.ca_port)
-                        ca.connect((self.hostname, self.ca_port))
-                    except Exception as e:
-                        print(e)
-                        print("Couldn't connect to CA, please type in valid host name and port.")
-                        sys.exit(0)
+                self.ca.send(request)
 
-                    ca.send(request)
+                # Wait for the response from CA containing (username, public_key, signed_public_key)
+                while True:
+                    print("Waiting for CA...")
+                    data = self.ca.recv(4096)
+                    request = Requests.parse_request(data)
+                    if len(request.data) == 0:
+                        print("There was in issue with the received data. Received the following raw data: ", data)
+                    elif request.is_ca_response_valid():
+                        print("Received a valid response from CA.")
+                        print("Sending account information to the server.")
+                        username = request.data["username"]
+                        public_key = request.data["public_key"]
+                        ca_signature = request.data["signature"]
+                        request = Requests.create_new_account(username, public_key, ca_signature)
 
-                    # Wait for the response from CA containing (username, public_key, signed_public_key)
-                    while True:
-                        print("Waiting for CA...")
-                        data = ca.recv(4096)
-                        request = Requests.parse_request(data)
-                        if len(request.data) == 0:
-                            print("There was in issue with the received data. Received the following raw data: ", data)
-                        elif request.is_ca_response_valid():
-                            print("Received a valid response from CA.")
-                            print("Sending account information to the server.")
-                            username = request.data["username"]
-                            public_key = request.data["public_key"]
-                            ca_signature = request.data["signature"]
-                            request = Requests.create_new_account(username, public_key, ca_signature)
+                        private_key_b64 = base64.b64encode(self.private_key)
+                        enc_private_key, aes_iv = Crypto_Functions.aes_encrypt(str(private_key_b64), self.password_aes)
+                        enc_private_key_b64 = base64.b64encode(enc_private_key)
+                        aes_iv_b64 = base64.b64encode(aes_iv)
 
-                            private_key_b64 = base64.b64encode(self.private_key)
-                            enc_private_key, aes_iv = Crypto_Functions.aes_encrypt(str(private_key_b64), self.password_aes)
-                            enc_private_key_b64 = base64.b64encode(enc_private_key)
-                            aes_iv_b64 = base64.b64encode(aes_iv)
+                        tag_contents = str(enc_private_key_b64) + str(aes_iv_b64)
+                        hmac = Crypto_Functions.hmac_b64(tag_contents.encode(), self.password_hmac)
+                        hmac_b64 = hmac
 
-                            tag_contents = str(enc_private_key_b64) + str(aes_iv_b64)
-                            hmac = Crypto_Functions.hmac_b64(tag_contents.encode(), self.password_hmac)
-                            hmac_b64 = hmac
+                        Database.add_user_account(
+                            self.username,
+                            str(enc_private_key_b64),
+                            str(aes_iv_b64),
+                            str(hmac_b64)
+                        )
+                        
+                        self.s.send(request)
+                        break
+                    elif request.is_ca_response_invalid():
+                        print("CA indicated an invalid request. Please try again with a different username.")
+                        self.create_account()
+                        break
 
-                            Database.add_user_account(
-                                self.username,
-                                str(enc_private_key_b64),
-                                str(aes_iv_b64),
-                                str(hmac_b64)
-                            )
-                            
-                            ca_signed = True
-                            break
-                        elif request.is_ca_response_invalid():
-                            break
-                
-                if not ca_signed:
-                    print("CA indicated an invalid request. Please try again with a different username.")
-                    self.create_account
-                    return
-
-                # Connect to the server
-                self.create_connection()
-
-                # Send a request to create an account to the server
-                self.s.send(request)              
-                
                 # When we get to this point, we know CA sent back a valid response and that we sent a request
                 # to the server to create an account. Now we wait for the server to send a confirmation that
                 # the account has been created.
@@ -215,7 +195,7 @@ class Client:
     def login(self):
         self.username = input("Please enter username: ")
         password = input("Please enter your password: ")
-        self.pasord_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
+        self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
         if not self.populate_private_key():
             print("Account not verified. Please check username and password and try again.")
             self.authenticate()
@@ -331,15 +311,7 @@ class Client:
         pass
 
     def start_client(self):
-        args = sys.argv
-        if len(args) != 4:
-            print("correct usage: python3 Server.py <hostname> <server_port> <ca_port>")
-            sys.exit(0)
-
-        self.hostname = args[1]
-        self.server_port = int(args[2])
-        self.ca_port = int(args[3])
-
+        self.create_connections()
         self.authenticate()
 
         # Handles threading of sending and receiving messages for a client
@@ -349,16 +321,25 @@ class Client:
         receive_handler = threading.Thread(target=self.handle_receive, args=())
         receive_handler.start()
 
-    def create_connection(self):
+    def create_connections(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connect_to_server()
-    
-    def connect_to_server(self):
+        self.ca = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            self.s.connect((self.hostname, self.server_port))
-        except:
+            # Get command line arguments and check correctness	
+            args = sys.argv	
+            if len(args) != 4:	
+                print("correct usage: python3 Server.py <hostname> <server_port> <ca_port>")	
+                sys.exit(0)	
+
+            hostname = args[1]	
+            server_port = int(args[2])	
+            ca_port = int(args[3])	
+
+            self.s.connect((hostname, server_port))	
+            self.ca.connect((hostname, ca_port))	
+        except:	
             print("Couldn't connect to server, please type in valid host name and port.")
-            sys.exit(0)
+
 
     def choose_send(self):
 
