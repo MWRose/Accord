@@ -47,26 +47,26 @@ class Server:
         print("Running on port: " + str(server_port))
 
         while True:
+            print("In while loop on the server")
             c, addr = self.s.accept()
             data = c.recv(4096)
             request = Requests.parse_request(data)
-
+            print(request.data)
             if len(request.data) == 0:
                 print("There was in issue with the received data. Received the following raw data: ", data)
             elif request.is_login():
                 username = request.data["username"]
                 print("New connection. Username: " + str(username))
                 self.broadcast(username + " has entered the chat.")
-                self.clients[username] = c
                 threading.Thread(target=self.handle_client,args=(c,username,addr,)).start()
             elif request.is_create_new_account():
-                threading.Thread(target=self.create_account,args=(c,request.data,)).start()
+                threading.Thread(target=self.handle_new_client,args=(c,addr,request.data,)).start()
                 
     def broadcast(self, msg):
         for connection in self.clients.values():
             connection.send(Requests.broadcast(msg))
 
-    def create_account(self, c, data):
+    def handle_new_client(self, c, addr, data):
         username = data["username"]	
         public_key = data["public_key"]	
         ca_signature = data["signature"]	
@@ -74,12 +74,14 @@ class Server:
         if (not Database.check_user(username)):	
             Database.add_user_info(username, public_key, ca_signature)	
             request = Requests.account_created()	
-            c.send(request)	
+            c.send(request)
+            self.broadcast(username + " has entered the chat.")
+            self.clients[username] = c
+            self.handle_client(c, username, addr)
         else:	
             request = Requests.account_not_created()	
             c.send(request)	
             print("Could not create an account. The provided username is taken.")
-        c.shutdown(socket.SHUT_RDWR)
 
     def handle_client(self,c,username,addr):
         while True:

@@ -444,26 +444,6 @@ def erase_msg_timestamp(timestamp:str)->bool:
     os.remove("Accord_saved_accounts.db")
     '''
 
-
-def erase_msg_timestamp(timestamp:str)->bool:
-    """erasing message with timestamp less than"""
-    try:
-        conn = sqlite3.connect(DATABASE_MESSAGES)
-        c = conn.cursor()
-        for row in c.execute('SELECT * FROM messages'):
-            date_time_obj = datetime.datetime.strptime(row[3], '%Y-%m-%d %H:%M:%S.%f')
-            duration = datetime.datetime.now() - date_time_obj                      
-            duration_in_s = duration.total_seconds()
-            print(duration_in_s)
-            if duration_in_s > 20:
-                c.execute("DELETE FROM messages WHERE timestamp = ?", (row[3],)) #row[3] is the timestamp
-
-        conn.close()
-        return True
-    except Exception as e:
-        print(e)
-        return False
-
 #if __name__ == '__main__':
    # import pprint 
     #print()

@@ -9,7 +9,6 @@ REQUEST_KIND_INITIATE_GROUP_CHAT = "initiate_group"
 REQUEST_KIND_CA_REQUEST = "ca_request"
 REQUEST_KIND_CA_RESPONSE_VALID = "ca_response_valid"
 REQUEST_KIND_CA_RESPONSE_INVALID = "ca_response_invalid"
-REQUEST_KIND_LOGIN_REQUEST = "login_request"
 REQUEST_KIND_LOGIN_RESPONSE = "login_response"
 REQUEST_KIND_ACCOUNT_CREATED = "account_created"
 REQUEST_KIND_ACCOUNT_NOT_CREATED = "account_not_created"
@@ -56,9 +55,6 @@ class Request:
 
     def is_ca_response_invalid(self) -> bool:
         return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE_INVALID
-
-    def is_login_request(self) -> bool:
-        return self.is_valid and self.data["kind"] == REQUEST_KIND_LOGIN_REQUEST and "username" in self.data
 
     def is_login_response(self) -> bool:
         return self.is_valid and self.data["kind"] == REQUEST_KIND_LOGIN_RESPONSE
@@ -119,10 +115,6 @@ def ca_response_invalid():
 def create_new_account(username: str, public_key: str, signature: bytes):
     values = [("username", username), ("public_key", public_key), ("signature", signature)]
     return create_request(REQUEST_KIND_CREATE_NEW_ACCOUNT, values)
-
-def login_request(username: str) -> bytes:
-    values = [("username", username)]
-    return create_request(REQUEST_KIND_LOGIN_REQUEST, values)
 
 def login_response():
     #TODO: Respond with all login information

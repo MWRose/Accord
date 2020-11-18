@@ -41,4 +41,4 @@ def add_user(username:str, public_key:str, ca_signature:str) -> bool:
         conn.commit()
         conn.close()
     except Exception as _:
-        print("An exception was raised while adding a username to the database: " + e)
+        print("An exception was raised while adding a username to the database: " + username)
