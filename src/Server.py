@@ -87,6 +87,7 @@ class Server:
 
     def handle_recipient(self, data, c):
         request = Requests.parse_request(data)
+        print(request.data)
         if len(request.data) == 0:
             print("There was in issue with the received data. Received the following raw data: ", data)
         if request.is_create_new_account():
