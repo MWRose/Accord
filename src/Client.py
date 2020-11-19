@@ -43,6 +43,7 @@ class Client:
 
         Database.initialize_username_database()  # initializes the database w/username, public key, signatures
         Database.initialize_saved_accounts_database()
+        Database.initialize_groups_database()
 
         self.start_client()
 
@@ -208,13 +209,18 @@ class Client:
             # Ensure necesary information is there
             keys = ("contact", "contact_aes", "hmac_key", "signature", "iv_aes", "iv_hmac")
             invalid = False
-            if not all(key in keys for key in contact):  # Make sure all the keys are present
-                print("Not all fields in contact return")
-                invalid = True
+            print(contact)
+            for key in keys:  # Make sure all the keys are present
+                if key not in contact:
+                    invalid = True
+                    print("Not all fields in contact return")
+            
+            if invalid:
+                continue
             
             for key in keys:
                 if not contact[key]:  # Make sure each entry has a value
-                    print("Not all fields in contact return")
+                    print("Not all fields in contact have value return")
                     invalid = True
             if invalid:
                 continue
@@ -250,20 +256,25 @@ class Client:
                 print("Incorrect Decryption")
             
 
-            # Reveive group information that is stored in the database
-            groups = Database.get_username_groups(self.username)
-            for contact in groups:
-                
+        # Reveive group information that is stored in the database
+        groups = Database.get_username_groups(self.username)
+        for group in groups:
+            
+            for contact in group:
                 # Ensure necesary information is there
                 keys = ("group_name", "participant", "aes_key", "hmac_key", "signature", "aes_iv", "hmac_iv")
                 invalid = False
-                if not all(key in keys for key in contact):  # Make sure all the keys are present
-                    print("Not all fields in contact return")
-                    invalid = True
+                for key in keys:  # Make sure all the keys are present
+                    if key not in contact:
+                        print("Not all fields in contact return 1")
+                        invalid = True
+                
+                if invalid:
+                    continue
                 
                 for key in keys:
                     if not contact[key]:  # Make sure each entry has a value
-                        print("Not all fields in contact return")
+                        print("Not all fields in contact have value return 1")
                         invalid = True
                 if invalid:
                     continue
@@ -299,6 +310,7 @@ class Client:
                     # Make sure group has been added to group dict
                     if group_name not in self.groups:
                         self.groups[group_name] = {}
+                        print("lajf;lajdl;kfjla;kj")
                     
                     # Group has already been added to groups dict
                     self.groups[group_name]["aes_key"] = aes_key
@@ -311,6 +323,7 @@ class Client:
                     # If the user isn't in list add them to a new list
                     elif recipient not in self.groups[group_name]:
                         self.groups[group_name]["members"] = [recipient]
+                    
 
                 except:
                     print("Incorrect Decryption")
@@ -369,7 +382,7 @@ class Client:
 
             if not self.recipient in self.contacts:
                 print("Specified user does not exist. Please try again.")
-                self.choose_send()
+                self.recipient = ""
                 return
 
             self.group_name = ""
@@ -570,7 +583,7 @@ class Client:
 
                 # Get encrypted aes under self.password_aes
                 group_aes = str(base64.b64encode(aes_key))
-                enc_goup_aes = iv_aes = Crypto_Functions.aes_encrypt(group_aes, self.password_aes)
+                enc_goup_aes, iv_aes = Crypto_Functions.aes_encrypt(group_aes, self.password_aes)
                 enc_goup_aes = str(base64.b64encode(enc_goup_aes))
                 iv_aes = str(base64.b64encode(iv_aes))
 
@@ -600,6 +613,7 @@ class Client:
                 requester = request.data["requester"]
                 if requester not in self.contacts:
                     self.populate_public_keys(requester)
+                
                 keys = Receive.receive_direct_handshake(request.data, self.contacts, self.contacts[requester]["public_key"], self.private_key)
                 aes_key = keys["aes"]
                 hmac_key = keys["hmac"]
@@ -645,11 +659,12 @@ class Client:
 
         # Check if it exists and fields are correct
         keys = ("user", "public_key", "ca_signature")
-        if info == {} or not all(key in keys for key in info):
+        if info == {}:
             print("The user you requested was not found in the database")
             return
+        
         for key in keys:
-            if not info[key]:
+            if not key in info or not info[key]:
                 print("A public key value is missing")
                 return
 

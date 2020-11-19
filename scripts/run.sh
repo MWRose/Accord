@@ -10,6 +10,6 @@ run_bob="python3 Client.py $host $server_port $ca_port"
 run_alice="python3 Client.py $host $server_port $ca_port"
 gnome-terminal --working-directory=$(pwd) -- bash -c "${run_server}; bash"
 gnome-terminal --working-directory=$(pwd) -- bash -c "${run_ca}; bash"
-sleep 5
+sleep 3
 gnome-terminal --working-directory=$(pwd) -- bash -c "${run_bob}; bash"
 gnome-terminal --working-directory=$(pwd) -- bash -c "${run_alice}; bash"

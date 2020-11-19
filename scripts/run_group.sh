@@ -2,15 +2,16 @@
 echo "Hostname: $1"
 echo "Server port: $2"
 host=$1
-port=$2
-run_server="python3 Server.py $port"
-run_ca="python3 CA.py $host $port"
-run_bob="python3 Client.py $host $port"
-run_alice="python3 Client.py $host $port"
-run_john="python3 Client.py $host $port"
+server_port=$2
+ca_port=$3
+run_server="python3 Server.py $server_port"
+run_ca="python3 CA.py $ca_port"
+run_bob="python3 Client.py $host $server_port $ca_port"
+run_alice="python3 Client.py $host $server_port $ca_port"
+run_john="python3 Client.py $host $server_port $ca_port"
 gnome-terminal --working-directory=$(pwd) -- bash -c "${run_server}; bash"
 gnome-terminal --working-directory=$(pwd) -- bash -c "${run_ca}; bash"
-sleep 5
+sleep 3
 gnome-terminal --working-directory=$(pwd) -- bash -c "${run_bob}; bash"
 gnome-terminal --working-directory=$(pwd) -- bash -c "${run_alice}; bash"
 gnome-terminal --working-directory=$(pwd) -- bash -c "${run_john}; bash"
