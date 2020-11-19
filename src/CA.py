@@ -56,34 +56,45 @@ class CertAuth:
             data = c.recv(4096)
 
             request = Requests.parse_request(data)
-            print("Received from the client: ", data)
-
+            print("Received from the client: ", request.data)
             if len(request.data) == 0:
                 print("There was in issue with the received data. Received the following raw data: ", data)
-            elif request.is_ca_request():
-                username = request.data["username"]
-                print("New request. Username: " + str(username))
-                self.clients[username] = c
-                # Communicate with a client on a separate thread
-                threading.Thread(target=self.handle_client, args=(c,username,addr,request.data,)).start()
+            elif request.is_establish_connection():
+                threading.Thread(target=self.handle_client,args=(c,addr,)).start()
                 
-    def handle_client(self, c, username, address, data):   
-        if CA_Database.username_exists(username):
-            print("Username " + username + " exists in the CA database.")
-            ca_response = Requests.ca_response_invalid()
-            self.clients[username].send(ca_response)
-        else:
-            public_key_b64 = data["public_key"].encode()[2:-1]
-            public_key = base64.b64decode(public_key_b64)
-            message = username + "," + public_key.decode()
-            ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
-            ca_signature_b64 = base64.b64encode(ca_signature)
-            ca_response = Requests.ca_response_valid(username, data["public_key"], str(ca_signature_b64))
-            print("Signed public key for the user: " + username)
-            print("Adding user info to the CA database.")
-            CA_Database.add_user(username, data["public_key"], str(ca_signature_b64))
-            print("Sending the signature back to the client.")
-            self.clients[username].send(ca_response)
+    def handle_client(self,c,addr):
+        while True:
+            try:
+                data = c.recv(4096)
+            except:
+                c.shutdown(socket.SHUT_RDWR)
+                break
+
+            self.handle_receive(data, c)
+
+    def handle_receive(self, data, c):
+        request = Requests.parse_request(data)
+        if len(request.data) == 0:
+                print("There was in issue with the received data. Received the following raw data: ", data)
+        elif request.is_ca_request():
+            username = request.data["username"]
+            print("New request. Username: " + str(username))  
+            if CA_Database.username_exists(username):
+                print("Username " + username + " exists in the CA database.")
+                ca_response = Requests.ca_response_invalid()
+                c.send(ca_response)
+            else:
+                public_key_b64 = request.data["public_key"].encode()[2:-1]
+                public_key = base64.b64decode(public_key_b64)
+                message = username + "," + public_key.decode()
+                ca_signature = Crypto_Functions.rsa_sign(message.encode(), self.private_key)
+                ca_signature_b64 = base64.b64encode(ca_signature)
+                ca_response = Requests.ca_response_valid(username, request.data["public_key"], str(ca_signature_b64))
+                print("Signed public key for the user: " + username)
+                print("Adding user info to the CA database.")
+                CA_Database.add_user(username, request.data["public_key"], str(ca_signature_b64))
+                print("Sending the signature back to the client.")
+                c.send(ca_response)
             
 
 ca = CertAuth()

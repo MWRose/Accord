@@ -98,4 +98,4 @@ def send_direct(sender, recipient, contacts, message, s):
     enc_msg_b64 = base64.b64encode(enc_msg)
     iv_b64 = base64.b64encode(iv)
 
-    s.send(Requests.direct_message(sender, recipient, str(enc_msg_b64), str(iv_b64), timestamp, tag))
+    s.send(Requests.direct_message(sender, recipient, str(enc_msg_b64), str(iv_b64), timestamp, str(tag)))

@@ -325,7 +325,7 @@ class Client:
         pass
 
     def start_client(self):
-        self.create_connections()
+        self.establish_connections()
         self.authenticate()
 
         # Handles threading of sending and receiving messages for a client
@@ -335,7 +335,7 @@ class Client:
         receive_handler = threading.Thread(target=self.handle_receive, args=())
         receive_handler.start()
 
-    def create_connections(self):
+    def establish_connections(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.ca = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -353,7 +353,8 @@ class Client:
             self.ca.connect((hostname, ca_port))
 
             request = Requests.establish_connection()
-            self.s.send(request)	
+            self.s.send(request)
+            self.ca.send(request)
         except:	
             print("Couldn't connect to server, please type in valid host name and port.")
 
@@ -510,7 +511,7 @@ class Client:
                 if msg.lower() == "choose" or msg.lower() == "change":
                     self.choose_send()
 
-                if self.recipient and not self.group_name:
+                elif self.recipient and not self.group_name:
 
                     # Send the message
                     # print(self.contacts)
