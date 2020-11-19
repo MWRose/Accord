@@ -366,6 +366,12 @@ class Client:
         if (message_type == "direct"):
             self.recipient = input("Recipient: ")
             self.populate_public_keys(self.recipient)
+
+            if not self.recipient in self.contacts:
+                print("Specified user does not exist. Please try again.")
+                self.choose_send()
+                return
+
             self.group_name = ""
             self.group_members = []
 
