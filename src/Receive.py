@@ -7,8 +7,6 @@ import datetime
 def receive_direct(data, contacts):
     '''Receiving direct private messages '''
     sender = data["sender"]
-    print("printing contacts")
-    print(contacts)
 
     # Decode messages
     enc_msg_b64 = data["message"].encode()[2:-1]
