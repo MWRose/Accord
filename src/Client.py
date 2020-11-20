@@ -209,7 +209,6 @@ class Client:
             # Ensure necesary information is there
             keys = ("contact", "contact_aes", "hmac_key", "signature", "iv_aes", "iv_hmac")
             invalid = False
-            print(contact)
             for key in keys:  # Make sure all the keys are present
                 if key not in contact:
                     invalid = True
