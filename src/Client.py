@@ -310,7 +310,6 @@ class Client:
                     # Make sure group has been added to group dict
                     if group_name not in self.groups:
                         self.groups[group_name] = {}
-                        print("lajf;lajdl;kfjla;kj")
                     
                     # Group has already been added to groups dict
                     self.groups[group_name]["aes_key"] = aes_key
@@ -702,7 +701,6 @@ class Client:
         if not Crypto_Functions.check_hmac_b64(tag_contents.encode(), tag, self.password_hmac):
             self.private_key = b""
             return False
-        print(self.password_aes)
         private_key_b64 = Crypto_Functions.aes_decrypt(private_key_enc, iv, self.password_aes)
         private_key = base64.b64decode(private_key_b64.encode()[2:-1])
 
