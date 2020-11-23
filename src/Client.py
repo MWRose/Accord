@@ -35,6 +35,7 @@ class Client:
         self.ca_public_key = ""
         self.password_aes = b""
         self.password_hmac = b""
+        self.shortened_message = False # After the first sent message, will change the instruction to a shorter message ("Message: ")
 
         # Get CA public key TODO: Make this a hardcoded static var
         f = open('public_ca.pem', 'rb')
@@ -187,7 +188,7 @@ class Client:
                         print("Account was not created. Please try again.")
                         self.create_account()
             else:
-                print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
+                print("The password you typed was not secure. Password must use letters and numbers and must be at least 8 characters.")
         
         # When we get to this point, we know that the user's account has been created and we prompt the user to login
         # with their new credentials to proceed.
@@ -372,7 +373,7 @@ class Client:
 
     def choose_send(self):
 
-        message_type = input("group or direct? ")
+        message_type = input("Group or direct? ")
 
         if (message_type == "direct"):
             self.recipient = input("Recipient: ")
@@ -436,7 +437,7 @@ class Client:
 
             while True:
 
-                inp = input("new or existing? ")
+                inp = input("New or existing? ")
                 # Check if the group is new
                 if inp == "new" or inp == "0":
 
@@ -451,7 +452,7 @@ class Client:
                     group = input("Enter group name: ")
 
                     if not group in self.groups:
-                        print("The group was not found")
+                        print("The group was not found. ")
 
                     else:
 
@@ -461,7 +462,7 @@ class Client:
                         break
 
                 else:
-                    print("Please type new or existing.")
+                    print("Please type new or existing. ")
 
             if (self.group_name not in self.groups):
 
@@ -514,7 +515,7 @@ class Client:
                     )
 
         else:
-            print("Enter valid response: group or direct")
+            print("Enter valid response: group or direct ")
 
     def handle_send(self):
 
@@ -523,8 +524,11 @@ class Client:
                 self.choose_send()
 
             else:
-
-                msg = input("Message: ")
+                if (self.shortened_message):
+                    msg = input("Message: ")
+                else: 
+                    msg = input("Type in message or type 'change' to change recipient: ")
+                    self.shortened_message = True
                 if msg.lower() == "choose" or msg.lower() == "change":
                     self.choose_send()
 
@@ -658,7 +662,7 @@ class Client:
         # Check if it exists and fields are correct
         keys = ("user", "public_key", "ca_signature")
         if info == {}:
-            print("The user you requested was not found in the database")
+            print("The user you requested was not found in the database. ")
             return
         
         for key in keys:
