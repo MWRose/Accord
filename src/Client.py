@@ -474,7 +474,7 @@ class Client:
                 for recipient in self.group_members:
 
                     # Make sure we have a public key
-                    if recipient not in self.contacts.keys():
+                    if recipient not in self.contacts.keys() or "public_key" not in self.contacts[recipient]:
                         self.populate_public_keys(recipient)
 
                     keys = Send.send_group_handshake(self.username, recipient, self.group_members, self.s, self.private_key, self.contacts[recipient]["public_key"], key, self.group_name)
