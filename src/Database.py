@@ -89,7 +89,6 @@ def add_user_info(email:str, public_key:str, ca_signature:str) -> bool:
         conn.close()
         return True
     except Exception as e:
-        print(e)
         return False
 
 def get_user_info(email:str)->dict:
@@ -142,7 +141,6 @@ def initialize_saved_accounts_database():
             conn.close()
 #email, private_key, aes_iv, tag
 def add_user_account(email:str, private_key:str,aes_iv:str,tag:str) -> bool:
-    """ """
     try:
         conn = sqlite3.connect(DATABASE_SAVED_ACCOUNTS)
         cursor = conn.cursor()
@@ -260,6 +258,20 @@ def initialize_groups_database():
         if conn:
             conn.close()
 
+
+def check_group(group_name:str):
+    conn = None
+    try:
+        conn = sqlite3.connect(DATABASE_GROUPS)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM groups WHERE group_name=?", (group_name,))
+        result = cursor.fetchone()
+        return True if result else False
+    except Exception:
+        return False
+    finally:
+        if conn:
+            conn.close()
 
 def add_group(group_name:str, participant:str, signature:str, aes_key:str, aes_iv:str, hmac_key:str, hmac_iv:str) -> bool:
     try:
@@ -411,3 +423,16 @@ def erase_msg_timestamp(timestamp:str)->bool:
     except Exception as e:
         print(e)
         return False
+
+if __name__ == "__main__":
+    initialize_groups_database()
+    add_group("group1","a","k","key","iv","hmac","iv")
+    
+    add_group("group1","b","k","key","iv","hmac","iv")
+    
+    add_group("group1","c","k","key","iv","hmac","iv")
+    import pprint
+    
+    pprint.pprint(get_group_participants("group1"))
+
+    

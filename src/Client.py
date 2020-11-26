@@ -443,9 +443,15 @@ class Client:
 
                     # Get group name and members
                     group = input("Type in the members separated with a comma: ")
-                    self.group_name = input("What would you like to name the group? ")
-                    self.group_members = group.split(',')
-                    break
+                    
+                    while True:
+                        self.group_name = input("What would you like to name the group? ")
+                        if Database.check_group(self.group_name):
+                            print("Group name already exists. Please enter differnt name")
+                            pass
+                        else:
+                            self.group_members = group.split(',')
+                            break
 
                 # The group already exists
                 elif inp == "existing" or inp == "1":
@@ -463,6 +469,7 @@ class Client:
 
                 else:
                     print("Please type new or existing. ")
+
 
             if (self.group_name not in self.groups):
 
