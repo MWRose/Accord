@@ -4,7 +4,7 @@ import base64
 import Requests
 import datetime
 
-def receive_direct(data, contacts):
+def receive_direct(data, contacts, received_timestamps):
     '''Receiving direct private messages '''
     sender = data["sender"]
 
@@ -27,6 +27,13 @@ def receive_direct(data, contacts):
         print("Large difference in time sent and time recieved. Message was not received.")
         return
 
+    
+    # Check if the timestamp was already seen
+    if msg_timestamp in received_timestamps and received_timestamps[msg_timestamp] == sender:
+        print("There was an attempt at a replay attack, the message will not be viewed")
+        return
+    received_timestamps[msg_timestamp] = sender
+
     # Check tag
     tag = data["tag"]
     tag = base64.b64decode(tag.encode()[2:-1])
@@ -40,8 +47,10 @@ def receive_direct(data, contacts):
 
     print(sender + ": " + decrypted_msg)
 
+    return msg_timestamp
 
-def receive_group(data, groups):
+
+def receive_group(data, groups, received_timestamps):
     '''Receiving group messages '''
     sender = data["sender"]
     group_name = data["group_name"]
@@ -64,6 +73,12 @@ def receive_group(data, groups):
     if current_timestamp - float(msg_timestamp) > 20:
         print("Large difference in time sent and time recieved. Message was not received.")
         return
+
+    # Check if the timestamp was already seen
+    if msg_timestamp in received_timestamps and received_timestamps[msg_timestamp] == sender:
+        print("There was an attempt at a replay attack, the message will not be viewed")
+        return
+    received_timestamps[msg_timestamp] = sender
     
     # Check tag
     tag = data["tag"]

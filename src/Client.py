@@ -38,6 +38,7 @@ class Client:
         self.password_aes = b""
         self.password_hmac = b""
         self.shortened_message = False # After the first sent message, will change the instruction to a shorter message ("Message: ")
+        self.received_timestamps = {}
 
         # Get CA public key TODO: Make this a hardcoded static var
         f = open('public_ca.pem', 'rb')
@@ -49,48 +50,6 @@ class Client:
         Database.initialize_groups_database()
 
         self.start_client()
-
-        '''
-        # Sign in to existing account
-        if (Database.check_email(self.username)):
-           self.password = input("Enter your password: ")
-           if (Database.check_password(self.username, self.password)):
-            #    Gen.generate_key_pair(self.username)
-            #    self.populate_private_key()
-               self.create_connection()
-        else:             
-            strong_password = False
-            while not strong_password:
-                self.password = input("Create new password: ")
-                passwordChecker = PasswordChecker(self.password)
-                if(passwordChecker.password_checker()):
-                    Database.add_user_info(self.username, self.password)
-                    Gen.generate_key_pair(self.username)
-                    self.populate_private_key()
-                    self.create_connection()
-                    strong_password = True
-                else: 5csmDAuI1mQK
-                    print("The password you typed in was not secure. Password must use a mix of letters and numbers and must be at least 8 characters.")
-    '''
-
-    '''
-    Users
-    -----
-    (pavle@pomona.edu, private_key)
-    
-    Contacts
-    --------
-    (username, contact, aes_key)
-
-    pavle@pomona.edu, asasdsdfgbsdsdfgfds
-    pavle@pomona.edu, asdsdasdasadds
-    pavle@pomona.edu, adwsasdasasdas
-    max@pomona.edu
-
-    Messages (pavle@)
-    --------
-    from, to, timestamp, message
-    '''
 
     def authenticate(self):
         choice = input("Login or signup: ")
@@ -583,9 +542,9 @@ Example: :groups
             with self.console_lock:
                 # Handle different message types
                 if request.is_direct_message():
-                    Receive.receive_direct(request.data, self.contacts)
+                    Receive.receive_direct(request.data, self.contacts, self.received_timestamps)
                 elif request.is_group_message():
-                    Receive.receive_group(request.data, self.groups)
+                    Receive.receive_group(request.data, self.groups, self.received_timestamps)
                 elif request.is_broadcast():
                     print(request.data["message"])
 
