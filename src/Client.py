@@ -1,4 +1,5 @@
-import sys
+import sys, time
+import os
 import socket
 import threading
 from pyfiglet import Figlet
@@ -341,6 +342,14 @@ class Client:
         self.s.send(request)
         self.loggedin = False
         print("Logging out")
+
+        time.sleep(2)
+        os.system('clear')
+
+        f = Figlet(font="smslant")
+        print(f.renderText("Welcome to ACCORD"))
+        print("Chat away!")
+
         self.login()
 
     def start_client(self):
