@@ -11,6 +11,7 @@ import base64
 import Gen
 import Database
 from PasswordChecker import PasswordChecker
+from Command import Command
 
 # Argument: IP address, port number
 # Can run this multiple times for multiple different users
@@ -23,6 +24,7 @@ class Client:
         print(f.renderText("Welcome to ACCORD"))
         print("Chat away!")
 
+        self.console_lock = threading.Lock()
         self.recipient = ""        # Direct message recipient
         self.group_name = ""       # Group message name
         self.group_members = []    # Names of members of the group
@@ -98,6 +100,8 @@ class Client:
             self.login()
         else:
             self.create_account()
+        print("Welcome, " + self.username + "!")
+        print("You're currently in the listening mode. To issue a command, press ENTER. You can type :help to see all the available commands.")
 
     def create_account(self):
         valid_username = False
@@ -370,296 +374,314 @@ class Client:
         except:	
             print("Couldn't connect to server, please type in valid host name and port.")
 
-
-    def choose_send(self):
-
-        message_type = input("Group or direct? ")
-
-        if (message_type == "direct"):
-            self.recipient = input("Recipient: ")
-            self.populate_public_keys(self.recipient)
-
-            if not self.recipient in self.contacts:
-                print("Specified user does not exist. Please try again.")
-                self.recipient = ""
-                return
-
-            self.group_name = ""
-            self.group_members = []
-
-            # Check whether we have to send handshake
-            # print(self.contacts)
-            # print(self.contacts[self.recipient].keys())
-            if (self.recipient not in self.contacts or "aes_key" not in self.contacts[self.recipient].keys()):
-
-                # Send handshake
-                # keys = {"aes": ..., "hmac": ...}
-                keys = Send.send_direct_handshake(self.username, self.recipient, self.s, self.private_key, self.contacts[self.recipient]["public_key"])
-
-                # Update recipient's keys
-                self.contacts[self.recipient]["aes_key"] = keys["aes"]
-                self.contacts[self.recipient]["hmac_key"] = keys["hmac"]
-
-                ### --- Update the Database --- ###
-                email = self.username
-                contact = self.recipient
-
-                # Get encrypted aes under self.password_aes
-                contact_aes = base64.b64encode(keys["aes"])
-                enc_contact_aes, iv_aes = Crypto_Functions.aes_encrypt(str(contact_aes), self.password_aes)
-                enc_contact_aes = str(base64.b64encode(enc_contact_aes))
-                iv_aes = str(base64.b64encode(iv_aes))
-
-                # Get encrypted hmac under self.password_aes
-                hmac_key = base64.b64encode(keys["hmac"])
-                enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(str(hmac_key), self.password_aes)
-                enc_hmac_key = str(base64.b64encode(enc_hmac_key))
-                iv_hmac = str(base64.b64encode(iv_hmac))
-
-                # Create the signature
-                signature_contents = self.username + contact + enc_contact_aes + enc_hmac_key + iv_aes + iv_hmac
-                signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
-
-                # Update the database
-                Database.add_contact_info(
-                    email,
-                    contact,
-                    enc_contact_aes,
-                    signature,
-                    iv_aes,
-                    enc_hmac_key,
-                    iv_hmac
-                )
-
-        # TODO: Clean up this logic, need to check if it's existing
-        elif (message_type == "group"):
-            self.recipient = ""
-
-            while True:
-
-                inp = input("New or existing? ")
-                # Check if the group is new
-                if inp == "new" or inp == "0":
-
-                    # Get group name and members
-                    group = input("Type in the members separated with a comma: ")
-                    
-                    while True:
-                        self.group_name = input("What would you like to name the group? ")
-                        if Database.check_group(self.group_name):
-                            print("Group name already exists. Please enter differnt name")
-                            pass
-                        else:
-                            self.group_members = group.split(',')
-                            break
-
-                # The group already exists
-                elif inp == "existing" or inp == "1":
-                    group = input("Enter group name: ")
-
-                    if not group in self.groups:
-                        print("The group was not found. ")
-
-                    else:
-
-                        # Get group name and members
-                        self.group_name = group
-                        self.group_members = self.groups[group]["members"]
-                        break
-
-                else:
-                    print("Please type new or existing. ")
-
-
-            if (self.group_name not in self.groups):
-
-                # Initialize the group dict
-                self.groups[self.group_name] = {}
-                self.groups[self.group_name]["members"] = self.group_members
-
-                # Send a handshake to each member in the group
-                key = Crypto_Functions.generate_session_key()
-                for recipient in self.group_members:
-
-                    # Make sure we have a public key
-                    if recipient not in self.contacts.keys() or "public_key" not in self.contacts[recipient]:
-                        self.populate_public_keys(recipient)
-
-                    keys = Send.send_group_handshake(self.username, recipient, self.group_members, self.s, self.private_key, self.contacts[recipient]["public_key"], key, self.group_name)
-                    # TODO: Probably don't need to reassign as it should be the same
-                    self.groups[self.group_name]["aes_key"] = keys["aes"]
-                    self.groups[self.group_name]["hmac_key"] = keys["hmac"]
-
-                ### --- Update the database --- ### TODO: Probably should migrate this to above loop
-
-                email = self.username
-                group_aes = base64.b64encode(self.groups[self.group_name]["aes_key"])
-                enc_group_aes, iv_aes = Crypto_Functions.aes_encrypt(str(group_aes), self.password_aes)
-                enc_group_aes = str(base64.b64encode(enc_group_aes))
-                iv_aes = str(base64.b64encode(iv_aes))
-
-                # Get encrypted hmac under self.password_aes
-                hmac_key = base64.b64encode(self.groups[self.group_name]["hmac_key"])
-                enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(str(hmac_key), self.password_aes)
-                enc_hmac_key = str(base64.b64encode(enc_hmac_key))
-                iv_hmac = str(base64.b64encode(iv_hmac))
-
-                for member in self.group_members:
-                    contact = member
-
-                    # Create the signature
-                    signature_contents = email + contact + enc_group_aes + enc_hmac_key + iv_aes + iv_hmac
-                    signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
-
-                    Database.add_group(
-                        self.group_name,
-                        member,
-                        signature,
-                        enc_group_aes,
-                        iv_aes,
-                        enc_hmac_key,
-                        iv_hmac
-                    )
-
-        else:
-            print("Enter valid response: group or direct ")
-
     def handle_send(self):
 
         while True:
-            if not self.recipient and not self.group_name:
-                self.choose_send()
+            # Wait for the user to press ENTER
+            input()
+            with self.console_lock:
+                user_input = input("> ")
+                command = Command(user_input)
+                
+                # Adds a user to the contacts list (sends handshake)
+                # :add username
+                # Example: :add alice
+                if command.is_add_contact():
+                    username = command.parts[1]
 
-            else:
-                if (self.shortened_message):
-                    msg = input("Message: ")
-                else: 
-                    msg = input("Type in message or type 'change' to change recipient: ")
-                    self.shortened_message = True
-                if msg.lower() == "choose" or msg.lower() == "change":
-                    self.choose_send()
+                    # Check whether the user exists
+                    self.populate_public_keys(username)
+                    if not username in self.contacts:
+                        print("Specified user does not exist. Please try again.")
+                        continue
 
-                elif self.recipient and not self.group_name:
+                    # TODO: Check whether the user is online, only send the handshake if they are
 
-                    # Send the message
-                    # print(self.contacts)
-                    Send.send_direct(self.username, self.recipient, self.contacts, msg, self.s)
+                    # Check whether we have to send handshake
+                    if not "aes_key" in self.contacts[username]:
+                        self.send_direct_handshake(username)
+                    else:
+                        print("User is already in your contacts.")
+                # Creates a new group chat
+                # :newGroup name members
+                # Example: :newGroup testGroup alice,bob,john
+                elif command.is_new_group():
+                    group_name = command.parts[1]
+                    # TODO Validate all usernames in this split?
+                    group_members = command.parts[2].split(",")
+                    if Database.check_group(self.group_name) or self.is_group_in_groups(group_name):
+                        print("Group name already exists. Please enter a different name and try again.")             
+                    else:
+                        self.send_group_handshake(group_name, group_members)
+                # Sends a group message to the specified group.
+                # :group name message
+                # Example: :group testGroup "Hello testGroup"
+                elif command.is_group_message():
+                    group_name = command.parts[1]
+                    message = command.parts[2]
+                    if not self.is_group_in_groups(group_name):
+                        print("The group was not found.")
+                    else:
+                        Send.send_group_message(message, self.username, group_name, self.s, self.groups[group_name]["members"], self.groups)
+                # Sends a direct message to the specified user.
+                # :direct name message
+                # Example: :direct alice "Hello, Alice"
+                elif command.is_direct_message():
+                    recipient = command.parts[1]
+                    message = command.parts[2]
+                    if self.is_username_in_contacts(recipient):
+                        Send.send_direct(self.username, recipient, self.contacts, message, self.s)
+                    else:
+                        print("User not found in your contacts. Please first add the user using :add command. Type :help for more details.")
+                # Lists user's contacts.
+                # :contacts
+                elif command.is_list_contacts():
+                    print("Your contacts:")
+                    print(self.contacts)
+                # Lists user's groups.
+                # :groups
+                elif command.is_list_groups():
+                    print("Your groups:")
+                    print(self.groups)
+                elif command.is_block():
+                    # TODO: Implement this
+                    print("Not implemented.")
+                elif command.is_help():
+                    help_instructions = """
+Available commands
 
-                elif self.group_name:
-                    Send.send_group_message(msg, self.username, self.group_name, self.s, self.group_members, self.groups)
+Description: adds a user to the contacts list
+Usage: :add username
+Example: :add alice
 
+Description: creates a new group chat
+Usage: :newGroup name members
+Example: :newGroup testGroup alice,bob,john
+
+Description: sends a group message to the specified group
+Usage: :group name message
+Example: :group testGroup "Hello testGroup"
+
+Description: sends a direct message to the specified user
+Usage: :direct name message
+Example: :direct alice "Hello, Alice"
+
+Description: list contacts
+Usage: :contacts
+Example: :contacts
+
+Description: list groups
+Usage: :groups
+Example: :groups                    
+                    """
+                    print(help_instructions)
                 else:
-                    print("This should not print")
-                    print(bool(self.recipient), bool(self.group_name))
-                    self.choose_send()
+                    print("Command not recognized. Type :help for more details.")
+
+
+    def is_username_in_contacts(self, username):
+        return username in self.contacts and "aes_key" in self.contacts[username]
+
+
+    def is_group_in_groups(self, group_name):
+        return group_name in self.groups and "aes_key" in self.groups[group_name]
+
+
+    def send_direct_handshake(self, recipient):
+        # Send handshake
+        # keys = {"aes": ..., "hmac": ...}
+        keys = Send.send_direct_handshake(self.username, recipient, self.s, self.private_key, self.contacts[recipient]["public_key"])
+
+        # Update recipient's keys
+        self.contacts[recipient]["aes_key"] = keys["aes"]
+        self.contacts[recipient]["hmac_key"] = keys["hmac"]
+
+        ### --- Update the Database --- ###
+        email = self.username
+        contact = recipient
+
+        # Get encrypted aes under self.password_aes
+        contact_aes = base64.b64encode(keys["aes"])
+        enc_contact_aes, iv_aes = Crypto_Functions.aes_encrypt(str(contact_aes), self.password_aes)
+        enc_contact_aes = str(base64.b64encode(enc_contact_aes))
+        iv_aes = str(base64.b64encode(iv_aes))
+
+        # Get encrypted hmac under self.password_aes
+        hmac_key = base64.b64encode(keys["hmac"])
+        enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(str(hmac_key), self.password_aes)
+        enc_hmac_key = str(base64.b64encode(enc_hmac_key))
+        iv_hmac = str(base64.b64encode(iv_hmac))
+
+        # Create the signature
+        signature_contents = self.username + contact + enc_contact_aes + enc_hmac_key + iv_aes + iv_hmac
+        signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
+
+        # Update the database
+        Database.add_contact_info(
+            email,
+            contact,
+            enc_contact_aes,
+            signature,
+            iv_aes,
+            enc_hmac_key,
+            iv_hmac
+        )
+
+    def send_group_handshake(self, group_name, group_members):
+        # Initialize the group dict
+        self.groups[group_name] = {}
+        self.groups[group_name]["members"] = group_members
+
+        # Send a handshake to each member in the group
+        key = Crypto_Functions.generate_session_key()
+        for recipient in group_members:
+
+            # Make sure we have a public key
+            if recipient not in self.contacts.keys() or "public_key" not in self.contacts[recipient]:
+                self.populate_public_keys(recipient)
+
+            keys = Send.send_group_handshake(self.username, recipient, group_members, self.s, self.private_key, self.contacts[recipient]["public_key"], key, group_name)
+            # TODO: Probably don't need to reassign as it should be the same
+            self.groups[group_name]["aes_key"] = keys["aes"]
+            self.groups[group_name]["hmac_key"] = keys["hmac"]
+
+        ### --- Update the database --- ### TODO: Probably should migrate this to above loop
+
+        email = self.username
+        group_aes = base64.b64encode(self.groups[group_name]["aes_key"])
+        enc_group_aes, iv_aes = Crypto_Functions.aes_encrypt(str(group_aes), self.password_aes)
+        enc_group_aes = str(base64.b64encode(enc_group_aes))
+        iv_aes = str(base64.b64encode(iv_aes))
+
+        # Get encrypted hmac under self.password_aes
+        hmac_key = base64.b64encode(self.groups[group_name]["hmac_key"])
+        enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(str(hmac_key), self.password_aes)
+        enc_hmac_key = str(base64.b64encode(enc_hmac_key))
+        iv_hmac = str(base64.b64encode(iv_hmac))
+
+        for member in group_members:
+            contact = member
+
+            # Create the signature
+            signature_contents = email + contact + enc_group_aes + enc_hmac_key + iv_aes + iv_hmac
+            signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
+
+            Database.add_group(
+                group_name,
+                member,
+                signature,
+                enc_group_aes,
+                iv_aes,
+                enc_hmac_key,
+                iv_hmac
+            )
 
     def handle_receive(self):
-
         while True:
             data = self.s.recv(4096)
             request = Requests.parse_request(data)
+            with self.console_lock:
+                # Handle different message types
+                if request.is_direct_message():
+                    Receive.receive_direct(request.data, self.contacts)
+                elif request.is_group_message():
+                    Receive.receive_group(request.data, self.groups)
+                elif request.is_broadcast():
+                    print(request.data["message"])
 
-            # Handle different message types
-            if request.is_direct_message():
-                Receive.receive_direct(request.data, self.contacts)
-            elif request.is_group_message():
-                Receive.receive_group(request.data, self.groups)
-            elif request.is_broadcast():
-                print(request.data["message"])
+                # Initiate the group chat and save keys
+                elif request.is_initiate_group_chat():
+                    print("type is initiate group chat")
 
-            # Initiate the group chat and save keys
-            elif request.is_initiate_group_chat():
-                print("type is initiate group chat")
+                    requester = request.data["requester"]
+                    # Make sure we have the contact
+                    if requester not in self.contacts or "public_key" not in self.contacts[requester].keys():
 
-                requester = request.data["requester"]
-                # Make sure we have the contact
-                if requester not in self.contacts or "public_key" not in self.contacts[requester].keys():
+                        self.populate_public_keys(requester)
 
-                    self.populate_public_keys(requester)
+                    # Recieve the handshake
+                    keys = Receive.receive_group_handshake(request.data, self.username, self.groups, self.contacts, self.private_key)
+                    group_name = keys["group_name"]
+                    aes_key = keys["aes"]
+                    hmac_key = keys["hmac"]
+                    members = keys["members"]
 
-                # Recieve the handshake
-                keys = Receive.receive_group_handshake(request.data, self.username, self.groups, self.contacts, self.private_key)
-                group_name = keys["group_name"]
-                aes_key = keys["aes"]
-                hmac_key = keys["hmac"]
-                members = keys["members"]
+                    # This will completely overwrite or add a new one
+                    self.groups[group_name] = {"aes_key": aes_key, "hmac_key": hmac_key, "members": members}
 
-                # This will completely overwrite or add a new one
-                self.groups[group_name] = {"aes_key": aes_key, "hmac_key": hmac_key, "members": members}
+                    ### --- Update the Database --- ###
+                    email = self.username
 
-                ### --- Update the Database --- ###
-                email = self.username
+                    # Get encrypted aes under self.password_aes
+                    group_aes = str(base64.b64encode(aes_key))
+                    enc_goup_aes, iv_aes = Crypto_Functions.aes_encrypt(group_aes, self.password_aes)
+                    enc_goup_aes = str(base64.b64encode(enc_goup_aes))
+                    iv_aes = str(base64.b64encode(iv_aes))
 
-                # Get encrypted aes under self.password_aes
-                group_aes = str(base64.b64encode(aes_key))
-                enc_goup_aes, iv_aes = Crypto_Functions.aes_encrypt(group_aes, self.password_aes)
-                enc_goup_aes = str(base64.b64encode(enc_goup_aes))
-                iv_aes = str(base64.b64encode(iv_aes))
+                    # get encrypted hmac under self.password_aes
+                    hmac_key = str(base64.b64encode(hmac_key))
+                    enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(hmac_key, self.password_aes)
+                    enc_hmac_key = str(base64.b64encode(enc_hmac_key))
+                    iv_hmac = str(base64.b64encode(iv_hmac))
 
-                # get encrypted hmac under self.password_aes
-                hmac_key = str(base64.b64encode(hmac_key))
-                enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(hmac_key, self.password_aes)
-                enc_hmac_key = str(base64.b64encode(enc_hmac_key))
-                iv_hmac = str(base64.b64encode(iv_hmac))
+                    # Add line for each member
+                    for member in members:
+                        contact = member
+                        signature_contents = email + contact + enc_goup_aes + enc_hmac_key + iv_aes + iv_hmac
+                        signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
 
-                # Add line for each member
-                for member in members:
-                    contact = member
-                    signature_contents = email + contact + enc_goup_aes + enc_hmac_key + iv_aes + iv_hmac
+                        Database.add_group(
+                            group_name,
+                            contact,
+                            signature,
+                            enc_goup_aes,
+                            iv_aes,
+                            enc_hmac_key,
+                            iv_hmac
+                        )
+
+                elif request.is_initiate_direct_message():
+                    requester = request.data["requester"]
+                    if requester not in self.contacts:
+                        self.populate_public_keys(requester)
+                    
+                    keys = Receive.receive_direct_handshake(request.data, self.contacts, self.contacts[requester]["public_key"], self.private_key)
+                    aes_key = keys["aes"]
+                    hmac_key = keys["hmac"]
+
+                    # This will add or overwrite two fields to the requester's contact, leaving the others
+                    self.contacts[requester]["aes_key"] = aes_key
+                    self.contacts[requester]["hmac_key"] = hmac_key
+
+                    ### --- Update the Database --- ###
+                    email = self.username
+                    contact = requester
+
+                    # Get encrypted aes under self.password_aes
+                    contact_aes = str(base64.b64encode(aes_key))
+                    enc_contact_aes, iv_aes = Crypto_Functions.aes_encrypt(contact_aes, self.password_aes)
+                    enc_contact_aes = str(base64.b64encode(enc_contact_aes))
+                    iv_aes = str(base64.b64encode(iv_aes))
+
+                    # Get encrypted hmac under self.password_aes
+                    hmac_key = str(base64.b64encode(hmac_key))
+                    enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(hmac_key, self.password_aes)
+                    enc_hmac_key = str(base64.b64encode(enc_hmac_key))
+                    iv_hmac = str(base64.b64encode(iv_hmac))
+
+                    # Create the signature
+                    signature_contents = self.username + contact + enc_contact_aes + enc_hmac_key + iv_aes + iv_hmac
                     signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
 
-                    Database.add_group(
-                        group_name,
+                    Database.add_contact_info(
+                        email,
                         contact,
+                        enc_contact_aes,
                         signature,
-                        enc_goup_aes,
                         iv_aes,
                         enc_hmac_key,
                         iv_hmac
                     )
-
-            elif request.is_initiate_direct_message():
-                requester = request.data["requester"]
-                if requester not in self.contacts:
-                    self.populate_public_keys(requester)
-                
-                keys = Receive.receive_direct_handshake(request.data, self.contacts, self.contacts[requester]["public_key"], self.private_key)
-                aes_key = keys["aes"]
-                hmac_key = keys["hmac"]
-
-                # This will add or overwrite two fields to the requester's contact, leaving the others
-                self.contacts[requester]["aes_key"] = aes_key
-                self.contacts[requester]["hmac_key"] = hmac_key
-
-                ### --- Update the Database --- ###
-                email = self.username
-                contact = requester
-
-                # Get encrypted aes under self.password_aes
-                contact_aes = str(base64.b64encode(aes_key))
-                enc_contact_aes, iv_aes = Crypto_Functions.aes_encrypt(contact_aes, self.password_aes)
-                enc_contact_aes = str(base64.b64encode(enc_contact_aes))
-                iv_aes = str(base64.b64encode(iv_aes))
-
-                # Get encrypted hmac under self.password_aes
-                hmac_key = str(base64.b64encode(hmac_key))
-                enc_hmac_key, iv_hmac = Crypto_Functions.aes_encrypt(hmac_key, self.password_aes)
-                enc_hmac_key = str(base64.b64encode(enc_hmac_key))
-                iv_hmac = str(base64.b64encode(iv_hmac))
-
-                # Create the signature
-                signature_contents = self.username + contact + enc_contact_aes + enc_hmac_key + iv_aes + iv_hmac
-                signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
-
-                Database.add_contact_info(
-                    email,
-                    contact,
-                    enc_contact_aes,
-                    signature,
-                    iv_aes,
-                    enc_hmac_key,
-                    iv_hmac
-                )
 
     def populate_public_keys(self, username: str):
 
