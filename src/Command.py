@@ -5,6 +5,9 @@ class Command:
         self.command = command
         self.parts = shlex.split(command)
 
+    def is_logout(self):
+        return self.command == ":logout"
+
     def is_add_contact(self):
         if not self.command.startswith(":add"):
             return False

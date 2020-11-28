@@ -97,6 +97,10 @@ class Server:
             print("New connection. Username: " + str(username))
             self.broadcast(username + " has entered the chat.")                
             self.clients[username] = c
+        if request.is_logout():
+            username = request.data["username"]
+            print("Ended connection with " + str(username))
+            del self.clients[username]
         if request.is_initiate_direct_message():
             # Initiate new chat between 2 connections
             recipient = request.data["recipient"]

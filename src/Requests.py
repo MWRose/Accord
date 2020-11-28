@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple, Sequence
 REQUEST_KIND_DIRECT_MESSAGE = "direct_message"
 REQUEST_KIND_GROUP_MESSAGE = "group_message"
 REQUEST_KIND_LOGIN = "login"
+REQUEST_KIND_LOGOUT = "logout"
 REQUEST_KIND_INITIATE_DIRECT_MESSAGE = "initiate_direct"
 REQUEST_KIND_INITIATE_GROUP_CHAT = "initiate_group"
 REQUEST_KIND_CA_REQUEST = "ca_request"
@@ -36,6 +37,9 @@ class Request:
 
     def is_login(self) -> bool:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_LOGIN and "username" in self.data
+    
+    def is_logout(self) -> bool:
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_LOGOUT and "username" in self.data
 
     def __is_initate_chat(self) -> bool:
         return self.is_valid() and "requester" in self.data and "encrypted" in self.data and "signed" in self.data
@@ -95,6 +99,10 @@ def group_message(sender: str, recipients: str, group_name: str, msg: str, iv: s
 def login(username: str) -> bytes:
     values = [("username", username)]
     return create_request(REQUEST_KIND_LOGIN, values)
+
+def logout(username: str) -> bytes:
+    values = [("username", username)]
+    return create_request(REQUEST_KIND_LOGOUT, values)
 
 def initiate_direct_message(requester: str, recipient: str, encrypted: bytes, signed: bytes) -> bytes:
     values = [("requester", requester), ("recipient", recipient), ("encrypted", encrypted), ("signed", signed)]

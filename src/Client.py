@@ -336,9 +336,12 @@ class Client:
         self.loggedin = True
 
 
-    def sign_off(self):
-        # TODO
-        pass
+    def logout(self):
+        request = Requests.logout(self.username)
+        self.s.send(request)
+        self.loggedin = False
+        print("Logging out")
+        self.login()
 
     def start_client(self):
         self.establish_connections()
@@ -382,11 +385,13 @@ class Client:
             with self.console_lock:
                 user_input = input("> ")
                 command = Command(user_input)
-                
+                # Logs user out
+                if command.is_logout():
+                    self.logout()
                 # Adds a user to the contacts list (sends handshake)
                 # :add username
                 # Example: :add alice
-                if command.is_add_contact():
+                elif command.is_add_contact():
                     username = command.parts[1]
 
                     # Check whether the user exists
@@ -449,6 +454,10 @@ class Client:
                 elif command.is_help():
                     help_instructions = """
 Available commands
+
+Description: log out of current account 
+Usage: :logout 
+Example: :logout
 
 Description: adds a user to the contacts list
 Usage: :add username
