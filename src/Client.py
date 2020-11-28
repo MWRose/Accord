@@ -258,7 +258,10 @@ class Client:
                 iv_hmac = base64.b64decode(iv_hmac_b64)
 
                 # Check the signature
+                # signature_contents = email + contact + enc_group_aes + enc_hmac_key + iv_aes + iv_hmac
+                # signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
                 signature_contents = self.username + recipient + contact["aes_key"] + contact["hmac_key"] + contact["aes_iv"] + contact["hmac_iv"]
+                print(signature_contents)
                 if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
                     print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
                     self.login()
@@ -541,6 +544,7 @@ Example: :groups
 
             # Create the signature
             signature_contents = email + contact + enc_group_aes + enc_hmac_key + iv_aes + iv_hmac
+            print(signature_contents)
             signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
 
             Database.add_group(
