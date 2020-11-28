@@ -249,7 +249,7 @@ def initialize_groups_database():
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
         cursor.execute("""CREATE TABLE groups
-                        (group_name TEXT, participant TEXT, signature TEXT, aes_key TEXT, aes_iv TEXT, hmac_key TEXT, hmac_iv TEXT)    
+                        (email TEXT, group_name TEXT, participant TEXT, signature TEXT, aes_key TEXT, aes_iv TEXT, hmac_key TEXT, hmac_iv TEXT)    
                         """)
         return True
     except Exception as e:
@@ -273,30 +273,30 @@ def check_group(group_name:str):
         if conn:
             conn.close()
 
-def add_group(group_name:str, participant:str, signature:str, aes_key:str, aes_iv:str, hmac_key:str, hmac_iv:str) -> bool:
+def add_group(email:str, group_name:str, participant:str, signature:str, aes_key:str, aes_iv:str, hmac_key:str, hmac_iv:str) -> bool:
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM groups WHERE group_name=? AND participant=?", (group_name,participant,))
+        cursor.execute("SELECT * FROM groups WHERE group_name=? AND email=?", (group_name,email,))
         result = cursor.fetchone()
 
         if result is not None:
             cursor.execute("DELETE FROM groups WHERE group_name = ?", (group_name,)) 
             sqlite_insert_with_param = """
                         INSERT INTO groups
-                        (group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv)    
-                        VALUES(?,?,?,?,?,?,?);
+                        (email, group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv)    
+                        VALUES(?,?,?,?,?,?,?,?);
                         """
-            cursor.execute(sqlite_insert_with_param, (group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv,))
+            cursor.execute(sqlite_insert_with_param, (email, group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv,))
             conn.commit()
         else:
             sqlite_insert_with_param = """
                         INSERT INTO groups
-                        (group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv)        
-                        VALUES(?,?,?,?,?,?,?);
+                        (email, group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv)        
+                        VALUES(?,?,?,?,?,?,?,?);
                         """
 
-            cursor.execute(sqlite_insert_with_param, (group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv,))
+            cursor.execute(sqlite_insert_with_param, (email, group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv,))
             conn.commit()
             
         conn.close()
@@ -314,17 +314,17 @@ def delete_group(group_name:str):
     except Exception as e:
         return False
 
-def get_group_participants(group_name:str)->list:
+def get_group_participants(user:str, group_name:str)->list:
     return_list = []
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM groups WHERE group_name=?", (group_name,))
+        cursor.execute("SELECT * FROM groups WHERE group_name=? and email=?", (group_name,user,))
         results = cursor.fetchall()
         if results is None:
             return return_list
         for r in results:
-            return_list.append({"group_name": r[0] , "participant": r[1] ,"signature": r[2], "aes_key": r[3] , "aes_iv": r[4], "hmac_key": r[5] , "hmac_iv": r[6]})
+            return_list.append({"group_name": r[1] , "participant": r[2] ,"signature": r[3], "aes_key": r[4] , "aes_iv": r[5], "hmac_key": r[6] , "hmac_iv": r[7]})
 
         return return_list       
     except Exception as e:
@@ -335,7 +335,7 @@ def get_username_groups(username:str):
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM groups WHERE participant=?", (username,))
+        cursor.execute("SELECT * FROM groups WHERE user=?", (username,))
         results = cursor.fetchall()
         if results is None:
             return return_list
@@ -347,6 +347,19 @@ def get_username_groups(username:str):
             return_list.append(get_group_participants(group))
 
         return return_list  
+    except Exception as e:
+        print(e)
+        return []
+
+def get_everything():
+
+    try:
+        conn = sqlite3.connect(DATABASE_GROUPS)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM groups")
+        results = cursor.fetchall()
+
+        return results  
     except Exception as e:
         print(e)
         return []
@@ -426,13 +439,24 @@ def erase_msg_timestamp(timestamp:str)->bool:
 
 if __name__ == "__main__":
     initialize_groups_database()
-    add_group("group1","a","k","key","iv","hmac","iv")
+    add_group("a","group1","a","k","key","iv","hmac","iv")
     
-    add_group("group1","b","k","key","iv","hmac","iv")
+    add_group("b","group1","b","k","key","iv","hmac","iv")
     
-    add_group("group1","c","k","key","iv","hmac","iv")
+    add_group("c","group1","c","k","key","iv","hmac","iv")
+
+
+    add_group("a","group1","a","k","key","iv","hmac","iv")
+    
+    add_group("b","group1","b","k","key","iv","hmac","iv")
+    
+    add_group("c","group1","c","k","key","iv","hmac","iv")
+
     import pprint
     
-    pprint.pprint(get_group_participants("group1"))
-
+    pprint.pprint(get_group_participants("a","group1"))
+    print("---")
+    pprint.pprint(get_group_participants("b","group1"))
     
+
+    print(get_everything())

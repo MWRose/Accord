@@ -426,27 +426,27 @@ class Client:
                     help_instructions = """
 Available commands
 
-Description: log out of current account 
+Description: log out of account 
 Usage: :logout 
 Example: :logout
 
-Description: adds a user to the contacts list
+Description: add user to the contacts list
 Usage: :add username
 Example: :add alice
 
-Description: creates a new group chat
-Usage: :newGroup name members
+Description: create a new group chat
+Usage: :newGroup groupName members
 Example: :newGroup testGroup alice,bob,john
 
-Description: sends a group message to the specified group
-Usage: :group name message
+Description: send a group message to a group chat
+Usage: :group groupName message
 Example: :group testGroup "Hello testGroup"
 
-Description: sends a direct message to the specified user
-Usage: :direct name message
+Description: send a direct message to a user
+Usage: :direct username message
 Example: :direct alice "Hello, Alice"
 
-Description: list contacts
+Description: list contacts in contacts list
 Usage: :contacts
 Example: :contacts
 
@@ -548,6 +548,7 @@ Example: :groups
             signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
 
             Database.add_group(
+                self.username,
                 group_name,
                 member,
                 signature,
@@ -612,6 +613,7 @@ Example: :groups
                         signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
 
                         Database.add_group(
+                            self.username,
                             group_name,
                             contact,
                             signature,

@@ -33,6 +33,11 @@ class Command:
 
     def is_list_groups(self):
         return self.command == ":groups"
+    
+    def is_group_info(self):
+        if not self.command.startswith(":groups info"):
+            return False
+        return self.__command_has_n_parts(2)
 
     def is_block(self):
         # TODO
