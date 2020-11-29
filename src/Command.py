@@ -3,7 +3,10 @@ import shlex
 class Command:
     def __init__(self, command):
         self.command = command
-        self.parts = shlex.split(command)
+        try:
+            self.parts = shlex.split(command)
+        except Exception as _:
+            self.parts = []
 
     def is_logout(self):
         return self.command == ":logout"
@@ -35,9 +38,14 @@ class Command:
         return self.command == ":groups"
     
     def is_group_info(self):
-        if not self.command.startswith(":groups info"):
+        if not self.command.startswith(":info"):
             return False
-        return self.__command_has_n_parts(2)
+        if not self.__command_has_n_parts(3):
+            return False
+        return self.parts[1] == "group"
+
+    def is_exit(self):
+        return self.command == ":exit"
 
     def is_block(self):
         # TODO

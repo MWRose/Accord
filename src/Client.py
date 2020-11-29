@@ -13,6 +13,7 @@ import Gen
 import Database
 from PasswordChecker import PasswordChecker
 from Command import Command
+import signal
 
 # Argument: IP address, port number
 # Can run this multiple times for multiple different users
@@ -60,8 +61,6 @@ class Client:
             self.login()
         else:
             self.create_account()
-        print("Welcome, " + self.username + "!")
-        print("You're currently in the listening mode. To issue a command, press ENTER. You can type :help to see all the available commands.")
 
     def create_account(self):
         valid_username = False
@@ -222,81 +221,82 @@ class Client:
 
         # Reveive group information that is stored in the database
         groups = Database.get_username_groups(self.username)
-        for group in groups:
+        for contact in groups:
+            # Ensure necesary information is there
+            print("12", contact)
+            keys = ("group_name", "participant", "aes_key", "hmac_key", "signature", "aes_iv", "hmac_iv")
+            invalid = False
+            for key in keys:  # Make sure all the keys are present
+                if key not in contact:
+                    print("Not all fields in contact return 1")
+                    invalid = True
             
-            for contact in group:
-                # Ensure necesary information is there
-                keys = ("group_name", "participant", "aes_key", "hmac_key", "signature", "aes_iv", "hmac_iv")
-                invalid = False
-                for key in keys:  # Make sure all the keys are present
-                    if key not in contact:
-                        print("Not all fields in contact return 1")
-                        invalid = True
+            if invalid:
+                continue
+            
+            for key in keys:
+                if not contact[key]:  # Make sure each entry has a value
+                    print("Not all fields in contact have value return 1")
+                    invalid = True
+            if invalid:
+                continue
+
+            # Get information from database line
+            group_name = contact["group_name"]
+            recipient = contact["participant"]
+            enc_aes_b64 = contact["aes_key"].encode()[2:-1]
+            enc_aes = base64.b64decode(enc_aes_b64)
+            enc_hmac_b64 = contact["hmac_key"].encode()[2:-1]
+            enc_hmac = base64.b64decode(enc_hmac_b64)
+            signed_b64 = contact["signature"].encode()[2:-1]
+            signed = base64.b64decode(signed_b64)
+            iv_aes_b64 = contact["aes_iv"].encode()[2:-1]
+            iv_aes = base64.b64decode(iv_aes_b64)
+            iv_hmac_b64 = contact["hmac_iv"].encode()[2:-1]
+            iv_hmac = base64.b64decode(iv_hmac_b64)
+
+            # Check the signature
+            # signature_contents = email + contact + enc_group_aes + enc_hmac_key + iv_aes + iv_hmac
+            # signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
+            signature_contents = self.username + recipient + contact["aes_key"] + contact["hmac_key"] + contact["aes_iv"] + contact["hmac_iv"]
+            print(signature_contents)
+            if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
+                print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
+                self.login()
+                return
+
+            # Decrypt keys
+            try:
+                aes_key = Crypto_Functions.aes_decrypt(enc_aes, iv_aes, self.password_aes)
+                aes_key = base64.b64decode(aes_key.encode()[2:-1])
+                hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
+                hmac_key = base64.b64decode(hmac_key.encode()[2:-1])
+
+                # Make sure group has been added to group dict
+                if group_name not in self.groups:
+                    self.groups[group_name] = {}
                 
-                if invalid:
-                    continue
+                # Group has already been added to groups dict
+                self.groups[group_name]["aes_key"] = aes_key
+                self.groups[group_name]["hmac_key"] = hmac_key
+
+                # Member list already created and current recipient not in it
+                if "members" in self.groups[group_name] and recipient not in self.groups[group_name]:
+                    self.groups[group_name]["members"].append(recipient)
                 
-                for key in keys:
-                    if not contact[key]:  # Make sure each entry has a value
-                        print("Not all fields in contact have value return 1")
-                        invalid = True
-                if invalid:
-                    continue
+                # If the user isn't in list add them to a new list
+                elif recipient not in self.groups[group_name]:
+                    self.groups[group_name]["members"] = [recipient]
+                
 
-                # Get information from database line
-                group_name = contact["group_name"]
-                recipient = contact["participant"]
-                enc_aes_b64 = contact["aes_key"].encode()[2:-1]
-                enc_aes = base64.b64decode(enc_aes_b64)
-                enc_hmac_b64 = contact["hmac_key"].encode()[2:-1]
-                enc_hmac = base64.b64decode(enc_hmac_b64)
-                signed_b64 = contact["signature"].encode()[2:-1]
-                signed = base64.b64decode(signed_b64)
-                iv_aes_b64 = contact["aes_iv"].encode()[2:-1]
-                iv_aes = base64.b64decode(iv_aes_b64)
-                iv_hmac_b64 = contact["hmac_iv"].encode()[2:-1]
-                iv_hmac = base64.b64decode(iv_hmac_b64)
-
-                # Check the signature
-                # signature_contents = email + contact + enc_group_aes + enc_hmac_key + iv_aes + iv_hmac
-                # signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
-                signature_contents = self.username + recipient + contact["aes_key"] + contact["hmac_key"] + contact["aes_iv"] + contact["hmac_iv"]
-                print(signature_contents)
-                if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
-                    print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
-                    self.login()
-                    return
-
-                # Decrypt keys
-                try:
-                    aes_key = Crypto_Functions.aes_decrypt(enc_aes, iv_aes, self.password_aes)
-                    aes_key = base64.b64decode(aes_key.encode()[2:-1])
-                    hmac_key = Crypto_Functions.aes_decrypt(enc_hmac, iv_hmac, self.password_aes)
-                    hmac_key = base64.b64decode(hmac_key.encode()[2:-1])
-
-                    # Make sure group has been added to group dict
-                    if group_name not in self.groups:
-                        self.groups[group_name] = {}
-                    
-                    # Group has already been added to groups dict
-                    self.groups[group_name]["aes_key"] = aes_key
-                    self.groups[group_name]["hmac_key"] = hmac_key
-
-                    # Member list already created and current recipient not in it
-                    if "members" in self.groups[group_name] and recipient not in self.groups[group_name]:
-                        self.groups[group_name]["members"].append(recipient)
-                    
-                    # If the user isn't in list add them to a new list
-                    elif recipient not in self.groups[group_name]:
-                        self.groups[group_name]["members"] = [recipient]
-                    
-
-                except:
-                    print("Incorrect Decryption")
+            except:
+                print("Incorrect Decryption")
         
         request = Requests.login(self.username)
         self.s.send(request)
         self.loggedin = True
+        print("Welcome, " + self.username + "!")
+        print("You're currently in the listening mode. To issue a command, press ENTER. You can type :help to see all the available commands.")
 
 
     def logout(self):
@@ -409,16 +409,35 @@ class Client:
                         Send.send_direct(self.username, recipient, self.contacts, message, self.s)
                     else:
                         print("User not found in your contacts. Please first add the user using :add command. Type :help for more details.")
+                
+                # Displays members associated with the specified group.
+                # :info group name
+                # Example: :info group testGroup
+                elif command.is_group_info():
+                    group_name = command.parts[2]
+                    if not group_name in self.groups:
+                        print("Group " + group_name + " not found.")
+                    else:
+                        print("Group " + group_name + " members: ")
+                        for member in self.groups[group_name]["members"]:
+                            print(member)
+                # Closes the chat client.
+                # :exit
+                elif command.is_exit():
+                    # Linux-only
+                    os.kill(os.getpid(), signal.SIGINT)
                 # Lists user's contacts.
                 # :contacts
                 elif command.is_list_contacts():
                     print("Your contacts:")
-                    print(self.contacts)
+                    for contact in self.contacts:
+                        print(contact)
                 # Lists user's groups.
                 # :groups
                 elif command.is_list_groups():
                     print("Your groups:")
-                    print(self.groups)
+                    for group in self.groups:
+                        print(group)
                 elif command.is_block():
                     # TODO: Implement this
                     print("Not implemented.")
@@ -452,8 +471,11 @@ Example: :contacts
 
 Description: list groups
 Usage: :groups
-Example: :groups                    
-                    """
+Example: :groups  
+
+Description: list members of a group chat
+Usage: :info group groupName
+Example: :info group testGroup                    """
                     print(help_instructions)
                 else:
                     print("Command not recognized. Type :help for more details.")

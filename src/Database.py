@@ -277,28 +277,16 @@ def add_group(email:str, group_name:str, participant:str, signature:str, aes_key
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM groups WHERE group_name=? AND email=?", (group_name,email,))
-        result = cursor.fetchone()
 
-        if result is not None:
-            cursor.execute("DELETE FROM groups WHERE group_name = ?", (group_name,)) 
-            sqlite_insert_with_param = """
-                        INSERT INTO groups
-                        (email, group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv)    
-                        VALUES(?,?,?,?,?,?,?,?);
-                        """
-            cursor.execute(sqlite_insert_with_param, (email, group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv,))
-            conn.commit()
-        else:
-            sqlite_insert_with_param = """
-                        INSERT INTO groups
-                        (email, group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv)        
-                        VALUES(?,?,?,?,?,?,?,?);
-                        """
+        sqlite_insert_with_param = """
+                    INSERT INTO groups
+                    (email, group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv)        
+                    VALUES(?,?,?,?,?,?,?,?);
+                    """
 
-            cursor.execute(sqlite_insert_with_param, (email, group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv,))
-            conn.commit()
-            
+        cursor.execute(sqlite_insert_with_param, (email, group_name , participant , signature, aes_key , aes_iv, hmac_key , hmac_iv,))
+        conn.commit()
+        
         conn.close()
         return True
     except Exception as e:
@@ -335,16 +323,21 @@ def get_username_groups(username:str):
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM groups WHERE user=?", (username,))
+        cursor.execute("SELECT * FROM groups WHERE email=?", (username,))
         results = cursor.fetchall()
         if results is None:
             return return_list
         ls_groups = []
         for r in results:
-            ls_groups.append(r[0])
-
-        for group in ls_groups:
-            return_list.append(get_group_participants(group))
+            if r[1] in ls_groups:
+                continue
+            else:
+                ls_groups.append(r[1])
+        
+        for g in ls_groups:
+            res = get_group_participants(username, r[1])
+            for line in res:
+                return_list.append(line)
 
         return return_list  
     except Exception as e:
@@ -437,26 +430,38 @@ def erase_msg_timestamp(timestamp:str)->bool:
         print(e)
         return False
 
-if __name__ == "__main__":
+#if __name__ == "__main__":
+    '''
     initialize_groups_database()
     add_group("a","group1","a","k","key","iv","hmac","iv")
     
+    add_group("a","group1","b","k","key","iv","hmac","iv")
+    
+    add_group("a","group1","c","k","key","iv","hmac","iv")
+
+
+    add_group("b","group1","a","k","key","iv","hmac","iv")
+    
     add_group("b","group1","b","k","key","iv","hmac","iv")
     
+    add_group("b","group1","c","k","key","iv","hmac","iv")
+
+    add_group("c","group1","a","k","key","iv","hmac","iv")
+    add_group("c","group1","b","k","key","iv","hmac","iv")
     add_group("c","group1","c","k","key","iv","hmac","iv")
 
 
-    add_group("a","group1","a","k","key","iv","hmac","iv")
-    
-    add_group("b","group1","b","k","key","iv","hmac","iv")
-    
-    add_group("c","group1","c","k","key","iv","hmac","iv")
-
+    add_group("a","group2","a","k","key","iv","hmac","iv")
+    add_group("a","group2","d","k","key","iv","hmac","iv")
+    add_group("d","group2","a","k","key","iv","hmac","iv")
+    add_group("d","group1","d","k","key","iv","hmac","iv")
     import pprint
     
     pprint.pprint(get_group_participants("a","group1"))
     print("---")
     pprint.pprint(get_group_participants("b","group1"))
     
-
-    print(get_everything())
+    print("--------")
+    pprint.pprint(get_username_groups("a"))
+    #print(get_everything())
+    '''
