@@ -17,6 +17,8 @@ def get_verification_code():
     return r
     
 if __name__ == '__main__' :
+    CA_EMAIL = 'accord_no_reply_register@outlook.com'
+    CA_PASS = 'acccord123@'
     try:
         server = smtplib.SMTP('smtp-mail.outlook.com','587')
         server.starttls()

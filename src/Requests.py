@@ -16,6 +16,10 @@ REQUEST_KIND_ACCOUNT_NOT_CREATED = "account_not_created"
 REQUEST_KIND_BROADCAST = "broadcast"
 REQUEST_KIND_CREATE_NEW_ACCOUNT = "create_new_account"
 REQUEST_KIND_ESTABLISH_CONNECTION = "establish_connection"
+REQUEST_KIND_SEND_EMAIL = "send_email"
+REQUEST_KIND_VERIFY_EMAIL = "verify_email"
+REQUEST_KIND_VALID_EMAIL  = "ca_response_email_valid"
+REQUEST_KIND_INVALID_EMAIL  = "ca_response_email_invalid"
 
 class Request:
     def __init__(self, data: Dict):
@@ -60,6 +64,12 @@ class Request:
 
     def is_ca_response_invalid(self) -> bool:
         return self.is_valid and self.data["kind"] == REQUEST_KIND_CA_RESPONSE_INVALID
+    
+    def is_ca_response_email_valid(self) -> bool:
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_VALID_EMAIL
+
+    def is_ca_response_email_invalid(self) -> bool:
+        return self.is_valid and self.data["kind"] == REQUEST_KIND_INVALID_EMAIL
 
     def is_login_response(self) -> bool:
         return self.is_valid and self.data["kind"] == REQUEST_KIND_LOGIN_RESPONSE
@@ -78,6 +88,12 @@ class Request:
 
     def is_establish_connection(self) -> bool:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_ESTABLISH_CONNECTION
+    
+    def is_send_email(self) -> bool:
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_SEND_EMAIL
+    
+    def is_verify_email(self) -> bool:
+        return self.is_valid() and self.data["kind"] == REQUEST_KIND_VERIFY_EMAIL
 
 def create_request(kind: str, values: Sequence[Tuple[str, object]]) -> bytes:
     data = {
@@ -124,6 +140,14 @@ def ca_response_invalid():
     values = []
     return create_request(REQUEST_KIND_CA_RESPONSE_INVALID, values)
 
+def ca_response_email_valid():
+    values = []
+    return create_request(REQUEST_KIND_VALID_EMAIL, values)
+
+def ca_response_email_invalid():
+    values = []
+    return create_request(REQUEST_KIND_INVALID_EMAIL, values)
+
 def create_new_account(username: str, public_key: str, signature: bytes):
     values = [("username", username), ("public_key", public_key), ("signature", signature)]
     return create_request(REQUEST_KIND_CREATE_NEW_ACCOUNT, values)
@@ -154,3 +178,11 @@ def parse_request(request: bytes) -> Request:
         return Request(data)
     except json.JSONDecodeError as _:
         return Request(dict())
+
+def send_email(username:str) -> bytes:
+    values = [("username", username)]
+    return create_request(REQUEST_KIND_SEND_EMAIL,values)
+
+def verify_email(code:str)->bytes:
+    values = [("code", code)]
+    return create_request(REQUEST_KIND_VERIFY_EMAIL,values)

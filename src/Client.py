@@ -14,7 +14,7 @@ import Database
 from PasswordChecker import PasswordChecker
 from Command import Command
 import signal
-
+import re
 # Argument: IP address, port number
 # Can run this multiple times for multiple different users
 
@@ -62,6 +62,13 @@ class Client:
         else:
             self.create_account()
 
+    def check_email_valid(self,email):
+        regex = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
+        if(re.search(regex,email)):
+            return True
+        else:
+            return False 
+
     def create_account(self):
         valid_username = False
         while not valid_username:
@@ -71,6 +78,30 @@ class Client:
             else:
                 valid_username = True
 
+        #Here for email verification
+        valid_email = False
+        while not valid_email:
+            email = self.username
+            print(email)
+            if not self.check_email_valid(email):
+                print("Email entered not valid")
+                self.create_account()
+            else:
+                request = Requests.send_email(email)
+                self.ca.send(request)
+                code = input("Please enter the verification code sent to your email address: ")
+                request2 = Requests.verify_email(code)
+                self.ca.send(request2)
+
+                data = self.ca.recv(4096)
+                request = Requests.parse_request(data)
+
+                if request.is_ca_response_email_valid():
+                    print("Authentication was successful")
+                    valid_email = True
+                elif request.is_ca_response_email_invalid():
+                    print("Code was not valid. Please try again.")
+            
         strong_password = False
         while not strong_password:
             password = input("Create new password: ")

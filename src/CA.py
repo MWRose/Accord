@@ -8,8 +8,15 @@ import Crypto_Functions
 import base64
 import threading
 import CA_Database
+import random
+import smtplib
 from pyfiglet import Figlet
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
 
+CA_EMAIL = 'accord_no_reply_register@outlook.com'
+CA_PASS = 'acccord123@'
 
 class CertAuth:
     def __init__(self):
@@ -95,6 +102,47 @@ class CertAuth:
                 CA_Database.add_user(username, request.data["public_key"], str(ca_signature_b64))
                 print("Sending the signature back to the client.")
                 c.send(ca_response)
-            
+        elif request.is_send_email():
+            username = request.data["username"]
+            print("CA received email: " + username)
+            self.send_email(username)
+    
+        elif request.is_verify_email():
+            code = request.data["code"]
+            if (self.verify_code(code)):
+                ca_response = Requests.ca_response_email_valid()
+                c.send(ca_response)
+            else:
+                ca_response = Requests.ca_response_email_invalid()
+                c.send(ca_response)
+
+    def verify_code(self, verification_code):
+        return str(verification_code) == str(self.code)
+
+
+    def send_email(self, email):
+        try:
+            self.server = smtplib.SMTP('smtp-mail.outlook.com','587')
+            self.server.starttls()
+            self.server.login(CA_EMAIL,CA_PASS)
+        except Exception as e:
+            return False 
+    
+        self.code = self.get_verification_code() 
+        msg = MIMEMultipart()
+        msg['From'] = CA_EMAIL
+        msg['To'] = email
+        msg['Subject'] = 'Accord Webchat Verification Code'
+
+        body = 'A request for account an creation in Accord was sent to this email. Verification Code: ' + str(self.code)
+        msg.attach(MIMEText(body,'plain'))
+        text = msg.as_string()
+    
+        self.server.sendmail(CA_EMAIL,email,text)
+        self.server.quit()
+    
+    def get_verification_code(self):
+        r = random.randint(100000, 999999)
+        return r
 
 ca = CertAuth()
