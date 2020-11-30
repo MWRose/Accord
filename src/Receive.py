@@ -76,7 +76,7 @@ def receive_group(data, groups, received_timestamps):
 
     # Check if the timestamp was already seen
     if msg_timestamp in received_timestamps and received_timestamps[msg_timestamp] == sender:
-        print("There was an attempt at a replay attack, the message will not be viewed")
+        # print("There was an attempt at a replay attack, the message will not be viewed")
         return
     received_timestamps[msg_timestamp] = sender
     

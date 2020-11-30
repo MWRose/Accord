@@ -83,24 +83,24 @@ class Client:
         while not valid_email:
             email = self.username
             print(email)
-            if not self.check_email_valid(email):
-                print("Email entered not valid")
-                self.create_account()
-            else:
-                request = Requests.send_email(email)
-                self.ca.send(request)
-                code = input("Please enter the verification code sent to your email address: ")
-                request2 = Requests.verify_email(code)
-                self.ca.send(request2)
+            # if not self.check_email_valid(email):
+            #     print("Email entered not valid")
+            #     self.create_account()
+            # else:
+            request = Requests.send_email(email)
+            self.ca.send(request)
+            code = input("Please enter the verification code sent to your email address: ")
+            request2 = Requests.verify_email(code)
+            self.ca.send(request2)
 
-                data = self.ca.recv(4096)
-                request = Requests.parse_request(data)
+            data = self.ca.recv(4096)
+            request = Requests.parse_request(data)
 
-                if request.is_ca_response_email_valid():
-                    print("Authentication was successful")
-                    valid_email = True
-                elif request.is_ca_response_email_invalid():
-                    print("Code was not valid. Please try again.")
+            if request.is_ca_response_email_valid():
+                print("Authentication was successful")
+                valid_email = True
+            elif request.is_ca_response_email_invalid():
+                print("Code was not valid. Please try again.")
             
         strong_password = False
         while not strong_password:
@@ -189,7 +189,7 @@ class Client:
         self.login()
 
     def login(self):
-        self.username = input("Please enter username: ")
+        self.username = input("Please enter email: ")
         password = input("Please enter your password: ")
         self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
         if not self.populate_private_key():
@@ -254,7 +254,7 @@ class Client:
         groups = Database.get_username_groups(self.username)
         for contact in groups:
             # Ensure necesary information is there
-            print("12", contact)
+            # print("12", contact)
             keys = ("group_name", "participant", "aes_key", "hmac_key", "signature", "aes_iv", "hmac_iv")
             invalid = False
             for key in keys:  # Make sure all the keys are present
@@ -290,7 +290,7 @@ class Client:
             # signature_contents = email + contact + enc_group_aes + enc_hmac_key + iv_aes + iv_hmac
             # signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
             signature_contents = self.username + recipient + contact["aes_key"] + contact["hmac_key"] + contact["aes_iv"] + contact["hmac_iv"]
-            print(signature_contents)
+            # print(signature_contents)
             if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
                 print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
                 self.login()
@@ -597,7 +597,7 @@ Example: :info group testGroup                    """
 
             # Create the signature
             signature_contents = email + contact + enc_group_aes + enc_hmac_key + iv_aes + iv_hmac
-            print(signature_contents)
+            # signature_contents)
             signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
 
             Database.add_group(
@@ -626,7 +626,7 @@ Example: :info group testGroup                    """
 
                 # Initiate the group chat and save keys
                 elif request.is_initiate_group_chat():
-                    print("type is initiate group chat")
+                    print("Initiating new group chat...")
 
                     requester = request.data["requester"]
                     # Make sure we have the contact

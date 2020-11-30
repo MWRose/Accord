@@ -15,7 +15,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 
-CA_EMAIL = 'accord_no_reply_register@outlook.com'
+CA_EMAIL = 'accord.no.reply.register@gmail.com'
 CA_PASS = 'acccord123@'
 
 class CertAuth:
@@ -122,10 +122,12 @@ class CertAuth:
 
     def send_email(self, email):
         try:
-            self.server = smtplib.SMTP('smtp-mail.outlook.com','587')
+            self.server = smtplib.SMTP('smtp.gmail.com', 587)
+            self.server.ehlo()
             self.server.starttls()
             self.server.login(CA_EMAIL,CA_PASS)
         except Exception as e:
+            print("Unable to login to system email.")
             return False 
     
         self.code = self.get_verification_code() 
@@ -134,7 +136,7 @@ class CertAuth:
         msg['To'] = email
         msg['Subject'] = 'Accord Webchat Verification Code'
 
-        body = 'A request for account an creation in Accord was sent to this email. Verification Code: ' + str(self.code)
+        body = 'A request for account creation in Accord was sent to this email. Verification Code: ' + str(self.code)
         msg.attach(MIMEText(body,'plain'))
         text = msg.as_string()
     

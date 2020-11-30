@@ -17,6 +17,8 @@ def get_verification_code():
     return r
     
 if __name__ == '__main__' :
+    check()
+    '''
     CA_EMAIL = 'accord_no_reply_register@outlook.com'
     CA_PASS = 'acccord123@'
     try:
@@ -45,3 +47,4 @@ if __name__ == '__main__' :
                 print("Account Creation Succesful")
         else:
             print("Email not valid")
+    '''
