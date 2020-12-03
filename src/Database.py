@@ -2,48 +2,11 @@ import sqlite3
 from sqlite3 import Error
 import datetime
 
-"""
-DISCLAIMER: user/email the same thing
-
-DATABASE WITH USERNAMES:
--contains: email,public_key,ca_signature
-
----Functions:---
-initialize_username_database()                          init database
-check_user(user)  -> bool:                              checks user in the database
-add_user_info(email, public_key, ca_signature) -> bool: adds user
-get_user_info(email)-> dict :                           get user info
-get_all_users() -> list of dict:                        gets all users
-
-DATABASE WITH SAVED ACCOUNTS:
--contains 2 tables: (1) USERS: email, private_key, aes_iv, tag 
-                    (2) CONTACTS: email, contact,contact_aes, signature , iv_aes , hmac_key ,iv_hmac ,public_key    
-
----Functions for table (1) USERS:---
-initialize_saved_accounts_database()                     init both tables
-add_user_account(email, private_key,aes_iv,tag)-> bool   add user account
-get_user_accounts() -> list of dict                      get all users 
-get_user_account(user) -> dict                           info of the user
-
----Functions for table (2) CONTACTS:---
-initialize_saved_accounts_database()                                                             init both tables
-add_contact_info(email,contact,contact_aes,signature,iv_aes,hmac_key,iv_hmac,public_key)->bool:  add contact info
-get_user_contact_info(email)-> list of dict                                                      list of contacts
-
-DATABASE WITH GROUPS:
--contains: groups inside the server 
-
----Functions:---
-initialize_groups_database()                                                                    init database
-add_group(group_name, participant, signature, aes_key, aes_iv, hmac_key, hmac_iv) -> bool:      adds a person is affiliated with a group individually
-get_username_groups(username) -> list of dict                                                   gets all instances of the user in groups
-get_group_participants(group_name) -> list of dict                                              gets all members in a group 
-delete_group(group_name) -> bool                                                                deletes group_name
-"""
 
 DATABASE_USERNAMES = r"Accord.db"
-'''Username Database'''
+'''DATABASE WITH USERNAMES'''
 def initialize_username_database():
+    '''initialize the username database'''
     conn = None
     try:
         conn = sqlite3.connect(DATABASE_USERNAMES)
@@ -52,28 +15,29 @@ def initialize_username_database():
                         (email TEXT, public_key TEXT, ca_signature TEXT)    
                         """)
         return True
-    except Exception as e:
+    except Exception:
         return False
     finally:
         if conn:
             conn.close()
 
 def check_user(email: str) -> bool:
+    '''check if user is in the username database'''
     try:
         conn = sqlite3.connect(DATABASE_USERNAMES)
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users WHERE email=?", (email,))
         result = cursor.fetchone()
         return result is not None
-    except Exception as e:
+    except Exception:
         return False
 
 def add_user_info(email:str, public_key:str, ca_signature:str) -> bool:
+    '''add user to the username database'''
     try:
         conn = sqlite3.connect(DATABASE_USERNAMES)
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users WHERE email=?", (email,))
-        result = cursor.fetchone()
         sqlite_insert_with_param = """
                     INSERT INTO users
                     (email,public_key,ca_signature)
@@ -88,10 +52,11 @@ def add_user_info(email:str, public_key:str, ca_signature:str) -> bool:
             conn.commit()
         conn.close()
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 def get_user_info(email:str)->dict:
+    '''get user info from username database'''
     try:
         conn = sqlite3.connect(DATABASE_USERNAMES)
         cursor = conn.cursor()
@@ -102,10 +67,11 @@ def get_user_info(email:str)->dict:
             return {"user": result[0], "public_key": result[1], "ca_signature": result[2]} 
         else:
             return {}
-    except Exception as e:
+    except Exception:
         return {}
 
 def get_all_users()->list:
+    '''get all users from the username database'''
     try:
         conn = sqlite3.connect(DATABASE_USERNAMES)
         c = conn.cursor()
@@ -114,16 +80,13 @@ def get_all_users()->list:
             return_list.append({"user": row[0], "public_key": row[1], "ca_signature": row[2]})
         conn.close()
         return return_list
-    except Exception as e:
+    except Exception:
         return []
 
 
-
-
 DATABASE_SAVED_ACCOUNTS = r"Accord_saved_accounts.db"
-'''Database users & contacts'''
 def initialize_saved_accounts_database():
-    """ """
+    '''initialize Users and Contacts database'''
     conn = None
     try:
         conn = sqlite3.connect(DATABASE_SAVED_ACCOUNTS)
@@ -134,13 +97,15 @@ def initialize_saved_accounts_database():
         cursor.execute("""CREATE TABLE contacts
                         (email TEXT, contact TEXT, contact_aes TEXT, signature TEXT, iv_aes TEXT, hmac_key TEXT, iv_hmac TEXT,public_key TEXT)    
                         """)
-    except Exception as e:
-        print(e)
+    except Exception:
+        if conn:
+            conn.close()
     finally:
         if conn:
             conn.close()
-#email, private_key, aes_iv, tag
+
 def add_user_account(email:str, private_key:str,aes_iv:str,tag:str) -> bool:
+    '''add user account to the Users data'''
     try:
         conn = sqlite3.connect(DATABASE_SAVED_ACCOUNTS)
         cursor = conn.cursor()
@@ -166,10 +131,11 @@ def add_user_account(email:str, private_key:str,aes_iv:str,tag:str) -> bool:
         conn.commit()
         conn.close()
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 def get_user_accounts() -> list:
+    '''get all users from the Users database'''
     return_list = []
     try:
         conn = sqlite3.connect(DATABASE_SAVED_ACCOUNTS)
@@ -178,11 +144,11 @@ def get_user_accounts() -> list:
             return_list.append({"user": row[0], "private_key": row[1], "aes_iv": row[2],"tag":row[3]})
         conn.close()
         return return_list
-    except Exception as e:
-        print(e)
+    except Exception:
         return return_list
 
 def get_user_account(user:str) -> dict:
+    '''get the user info from the Users database'''
     return_dict = {}
     try:
         conn = sqlite3.connect(DATABASE_SAVED_ACCOUNTS)
@@ -192,13 +158,12 @@ def get_user_account(user:str) -> dict:
         return_dict = {"user": result[0], "private_key": result[1], "aes_iv": result[2],"tag":result[3]}
         conn.close()
         return return_dict
-    except Exception as e:
+    except Exception:
         return return_dict
 
 
-
-
 def add_contact_info(email:str,contact:str,contact_aes:str,signature:str,iv_aes:str,hmac_key:str,iv_hmac:str,public_key="")->bool:
+    '''add contact info into Contacts database'''
     try:
         conn = sqlite3.connect(DATABASE_SAVED_ACCOUNTS)
         cursor = conn.cursor()
@@ -225,10 +190,11 @@ def add_contact_info(email:str,contact:str,contact_aes:str,signature:str,iv_aes:
             
         conn.close()
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 def get_user_contact_info(email:str)->list:
+    '''get all user's contacts from the database'''
     return_list = []
     try:
         conn = sqlite3.connect(DATABASE_SAVED_ACCOUNTS)
@@ -244,6 +210,7 @@ def get_user_contact_info(email:str)->list:
 
 DATABASE_GROUPS = r"Accord_groups.db"
 def initialize_groups_database():
+    '''inittialize group database'''
     conn = None
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
@@ -252,7 +219,7 @@ def initialize_groups_database():
                         (email TEXT, group_name TEXT, participant TEXT, signature TEXT, aes_key TEXT, aes_iv TEXT, hmac_key TEXT, hmac_iv TEXT)    
                         """)
         return True
-    except Exception as e:
+    except Exception:
         return False
     finally:
         if conn:
@@ -260,6 +227,7 @@ def initialize_groups_database():
 
 
 def check_group(group_name:str):
+    '''check if group exists in the database'''
     conn = None
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
@@ -274,6 +242,7 @@ def check_group(group_name:str):
             conn.close()
 
 def add_group(email:str, group_name:str, participant:str, signature:str, aes_key:str, aes_iv:str, hmac_key:str, hmac_iv:str) -> bool:
+    '''add a group to the group database'''
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
@@ -289,20 +258,21 @@ def add_group(email:str, group_name:str, participant:str, signature:str, aes_key
         
         conn.close()
         return True
-    except Exception as e:
-        print(e)
+    except Exception:
         return False    
 
 def delete_group(group_name:str):
+    '''delete group from database'''
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM groups WHERE group_name=?", (group_name,))
         return True 
-    except Exception as e:
+    except Exception:
         return False
 
 def get_group_participants(user:str, group_name:str)->list:
+    '''get all members in a group'''
     return_list = []
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
@@ -315,10 +285,11 @@ def get_group_participants(user:str, group_name:str)->list:
             return_list.append({"group_name": r[1] , "participant": r[2] ,"signature": r[3], "aes_key": r[4] , "aes_iv": r[5], "hmac_key": r[6] , "hmac_iv": r[7]})
 
         return return_list       
-    except Exception as e:
+    except Exception:
         return [] 
 
 def get_username_groups(username:str):
+    '''get all instances of the user in groups database'''
     return_list = []
     try:
         conn = sqlite3.connect(DATABASE_GROUPS)
@@ -328,140 +299,21 @@ def get_username_groups(username:str):
         if results is None:
             return return_list
         ls_groups = []
+       
         for r in results:
             if r[1] in ls_groups:
                 continue
             else:
                 ls_groups.append(r[1])
         
-        for g in ls_groups:
+        counter = len(ls_groups)
+        while counter != 0:
+            #test if the same
             res = get_group_participants(username, r[1])
             for line in res:
                 return_list.append(line)
+            counter -= 1
 
         return return_list  
-    except Exception as e:
-        print(e)
+    except Exception:
         return []
-
-def get_everything():
-
-    try:
-        conn = sqlite3.connect(DATABASE_GROUPS)
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM groups")
-        results = cursor.fetchall()
-
-        return results  
-    except Exception as e:
-        print(e)
-        return []
-
-DATABASE_MESSAGES = r"Accord_messages.db"
-'''Database messages'''
-def initialize_messages_database():
-    """ initialize message database """
-    conn = None
-    try:
-        conn = sqlite3.connect(DATABASE_MESSAGES)
-        cursor = conn.cursor()
-        cursor.execute("""CREATE TABLE messages
-                        (sender TEXT, recipient TEXT, message TEXT,timestamp DATETIME)    
-                        """)
-        return True
-    except Exception as e:
-        print(e)
-        return False
-    finally:
-        if conn:
-            conn.close()
-
-def add_message(sender:str, recipient:str, message:str) -> bool:
-    """ adding message to database"""
-    try:
-        #timestamp created here 
-        timestamp = datetime.datetime.now()
-        print(timestamp)
-        conn = sqlite3.connect(DATABASE_MESSAGES)
-        cursor = conn.cursor()
-        sqlite_insert_with_param = """
-                    INSERT INTO messages
-                    (sender,recipient,message,timestamp)
-                    VALUES(?,?,?,?);
-                    """
-        cursor.execute(sqlite_insert_with_param, (sender, recipient,message,timestamp))
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as e:
-        print(e)
-        return False
-
-def get_all_messages()->list:
-    try:
-        conn = sqlite3.connect(DATABASE_MESSAGES)
-        c = conn.cursor()
-        return_list = []
-        for row in c.execute('SELECT * FROM messages'):
-            return_list.append({"sender": row[0], "recipient": row[1],"message": row[2],"timestamp": row[3]})
-        conn.close()
-        return return_list
-    except Exception as e:
-        print(e)
-        pass
-
-
-def erase_msg_timestamp(timestamp:str)->bool:
-    """erasing message with timestamp less than"""
-    try:
-        conn = sqlite3.connect(DATABASE_MESSAGES)
-        c = conn.cursor()
-        for row in c.execute('SELECT * FROM messages'):
-            date_time_obj = datetime.datetime.strptime(row[3], '%Y-%m-%d %H:%M:%S.%f')
-            duration = datetime.datetime.now() - date_time_obj                      
-            duration_in_s = duration.total_seconds()
-            print(duration_in_s)
-            if duration_in_s > 20:
-                c.execute("DELETE FROM messages WHERE timestamp = ?", (row[3],)) #row[3] is the timestamp
-
-        conn.close()
-        return True
-    except Exception as e:
-        print(e)
-        return False
-
-#if __name__ == "__main__":
-    '''
-    initialize_groups_database()
-    add_group("a","group1","a","k","key","iv","hmac","iv")
-    
-    add_group("a","group1","b","k","key","iv","hmac","iv")
-    
-    add_group("a","group1","c","k","key","iv","hmac","iv")
-
-
-    add_group("b","group1","a","k","key","iv","hmac","iv")
-    
-    add_group("b","group1","b","k","key","iv","hmac","iv")
-    
-    add_group("b","group1","c","k","key","iv","hmac","iv")
-
-    add_group("c","group1","a","k","key","iv","hmac","iv")
-    add_group("c","group1","b","k","key","iv","hmac","iv")
-    add_group("c","group1","c","k","key","iv","hmac","iv")
-
-
-    add_group("a","group2","a","k","key","iv","hmac","iv")
-    add_group("a","group2","d","k","key","iv","hmac","iv")
-    add_group("d","group2","a","k","key","iv","hmac","iv")
-    add_group("d","group1","d","k","key","iv","hmac","iv")
-    import pprint
-    
-    pprint.pprint(get_group_participants("a","group1"))
-    print("---")
-    pprint.pprint(get_group_participants("b","group1"))
-    
-    print("--------")
-    pprint.pprint(get_username_groups("a"))
-    #print(get_everything())
-    '''

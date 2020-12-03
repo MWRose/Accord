@@ -12,7 +12,7 @@ import base64
 
 
 def generate_session_key() -> bytes:
-    return get_random_bytes(16) #TODO: Use 32 bytes
+    return get_random_bytes(32)
 
 
 def aes_encrypt(msg_str: str, aes_key: bytes) -> Tuple[bytes, bytes]:
@@ -102,9 +102,9 @@ def hash_keys(key: bytes) -> Tuple[bytes, bytes]:
     """
 
     salt = b'1234567890123456'
-    keys = PBKDF2(key, salt, 32, count=1000000, hmac_hash_module=SHA512)
-    key1 = keys[:16]
-    key2 = keys[16:]
+    keys = PBKDF2(key, salt, 64, count=1000000, hmac_hash_module=SHA512)
+    key1 = keys[:32]
+    key2 = keys[32:]
 
     return key1, key2
     

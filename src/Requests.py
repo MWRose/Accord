@@ -10,7 +10,6 @@ REQUEST_KIND_INITIATE_GROUP_CHAT = "initiate_group"
 REQUEST_KIND_CA_REQUEST = "ca_request"
 REQUEST_KIND_CA_RESPONSE_VALID = "ca_response_valid"
 REQUEST_KIND_CA_RESPONSE_INVALID = "ca_response_invalid"
-REQUEST_KIND_LOGIN_RESPONSE = "login_response"
 REQUEST_KIND_ACCOUNT_CREATED = "account_created"
 REQUEST_KIND_ACCOUNT_NOT_CREATED = "account_not_created"
 REQUEST_KIND_BROADCAST = "broadcast"
@@ -29,14 +28,12 @@ class Request:
         return "kind" in self.data
 
     def __is_message(self) -> bool:
-        # TODO Format the line
         return self.is_valid() and "sender" in self.data and  "message" in self.data and "iv" in self.data and "tag" in self.data
 
     def is_direct_message(self) -> bool:
         return self.__is_message() and self.data["kind"] == REQUEST_KIND_DIRECT_MESSAGE and "recipient" in self.data
 
     def is_group_message(self) -> bool:
-        # TODO Format the line
         return self.__is_message() and self.data["kind"] == REQUEST_KIND_GROUP_MESSAGE and "members" in self.data
 
     def is_login(self) -> bool:
@@ -49,11 +46,9 @@ class Request:
         return self.is_valid() and "requester" in self.data and "encrypted" in self.data and "signed" in self.data
 
     def is_initiate_direct_message(self) -> bool:
-        # TODO Format the line
         return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_DIRECT_MESSAGE and "recipient" in self.data 
 
     def is_initiate_group_chat(self) -> bool:
-        # TODO Format the line
         return self.__is_initate_chat() and self.data["kind"] == REQUEST_KIND_INITIATE_GROUP_CHAT and "recipients" in self.data and "recipient" in self.data
 
     def is_ca_request(self) -> bool:
@@ -70,9 +65,6 @@ class Request:
 
     def is_ca_response_email_invalid(self) -> bool:
         return self.is_valid and self.data["kind"] == REQUEST_KIND_INVALID_EMAIL
-
-    def is_login_response(self) -> bool:
-        return self.is_valid and self.data["kind"] == REQUEST_KIND_LOGIN_RESPONSE
 
     def is_account_created(self) -> bool:
         return self.is_valid() and self.data["kind"] == REQUEST_KIND_ACCOUNT_CREATED
@@ -151,10 +143,6 @@ def ca_response_email_invalid():
 def create_new_account(username: str, public_key: str, signature: bytes):
     values = [("username", username), ("public_key", public_key), ("signature", signature)]
     return create_request(REQUEST_KIND_CREATE_NEW_ACCOUNT, values)
-
-def login_response():
-    #TODO: Respond with all login information
-    pass
 
 def account_created():
     values = []

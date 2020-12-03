@@ -3,12 +3,13 @@ import socket
 import threading
 from pyfiglet import Figlet
 import Requests
-
-#importing database commands
 import Database
 
-# Argument: port number
 class Server:
+    '''
+    Arguments: port number
+    Must run this before starting Client
+    '''
     def __init__(self):
         # Print Accord server side messages
         f = Figlet(font="smslant")
@@ -18,18 +19,13 @@ class Server:
 
         self.start_server()
 
-    def start_server(self):
 
-        #Initialize the databases
+    def start_server(self):
+        # Initialize the databases
         self.is_database_user_init = False
         self.is_database_logs_init = False
-        # if is_database_user_init:
-        #     Database.initialize_database()
-        # if is_database_logs_init:
-        #     Database.initialize_log_database()
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
         server_name = socket.gethostbyname(socket.gethostname())
 
         # Get command line arguments and check correctness
@@ -56,10 +52,12 @@ class Server:
                 print("There was in issue with the received data. Received the following raw data: ", data)
             elif request.is_establish_connection():
                 threading.Thread(target=self.handle_client,args=(c,addr,)).start()
-                
+
+
     def broadcast(self, msg):
         for connection in self.clients.values():
             connection.send(Requests.broadcast(msg))
+
 
     def create_new_account(self, c, data):
         username = data["username"]	
@@ -75,6 +73,7 @@ class Server:
             c.send(request)	
             print("Could not create an account. The provided username is taken.")
 
+
     def handle_client(self,c,addr):
         while True:
             try:
@@ -84,6 +83,7 @@ class Server:
                 break
 
             self.handle_recipient(data, c)
+
 
     def handle_recipient(self, data, c):
         request = Requests.parse_request(data)
@@ -108,7 +108,6 @@ class Server:
             if recipient in self.clients:
                 self.clients[recipient].send(data)
         elif request.is_initiate_group_chat():
-            recipients = request.data["recipients"].split(",")
             recipient = request.data["recipient"]
             sender = request.data["requester"]
             # Skip sending back the handshake to the original sender in the group
@@ -129,12 +128,5 @@ class Server:
                     if member != sender:
                         self.clients[member].send(data)
     
-    # def check_database(self,user):
-    #     if Database.check_user(user):
-    #         print("User :", user, "in Database")
-    #     else:
-    #         print("Adding User: ",user, "to the database" )
-    #         Database.add_user(user)
-
 
 server = Server()

@@ -5,7 +5,11 @@ import Requests
 import datetime
 
 def receive_direct(data, contacts, received_timestamps):
-    '''Receiving direct private messages '''
+    '''
+    Receiving direct private messages.
+    Does necessary message conversion and checking then prints output
+    '''
+
     sender = data["sender"]
 
     # Decode messages
@@ -51,7 +55,11 @@ def receive_direct(data, contacts, received_timestamps):
 
 
 def receive_group(data, groups, received_timestamps):
-    '''Receiving group messages '''
+    '''
+    Receiving group messages.
+    Does necessary message conversion and checking then prints output
+    '''
+
     sender = data["sender"]
     group_name = data["group_name"]
 
@@ -94,7 +102,11 @@ def receive_group(data, groups, received_timestamps):
     print(sender + " to " + data["group_name"] + ": " + decrypted_msg)
 
 def receive_direct_handshake(data, contacts, sender_public_key, recipient_private_key):
-    '''receiving direct private message handshake'''
+    '''
+    Receiving direct private message handshake.
+    Does not update directly
+    '''
+
     sender = data["requester"]
     recipient = data["recipient"]
     encrypted_b64 = data["encrypted"]
@@ -127,7 +139,11 @@ def receive_direct_handshake(data, contacts, sender_public_key, recipient_privat
 
 
 def receive_group_handshake(data,sender,groups,contacts,private_key):
-    '''receiving handshake from group message'''
+    '''
+    Receiving handshake from group message.
+    Does not update directly
+    '''
+
     if sender in data["recipients"].split(","):
         # Parsed message contents
         requester = data["requester"]

@@ -44,13 +44,6 @@ class Command:
             return False
         return self.parts[1] == "group"
 
-    def is_exit(self):
-        return self.command == ":exit"
-
-    def is_block(self):
-        # TODO
-        return False
-
     def is_help(self):
         return self.command == ":help"
 

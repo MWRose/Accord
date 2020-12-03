@@ -15,11 +15,12 @@ from PasswordChecker import PasswordChecker
 from Command import Command
 import signal
 import re
-# Argument: IP address, port number
-# Can run this multiple times for multiple different users
-
 
 class Client:
+    '''
+    Arguments: server port
+    Can run this multiple times for multiple different users
+    '''
     def __init__(self):
         # Print Accord client side messages
         f = Figlet(font="smslant")
@@ -27,27 +28,24 @@ class Client:
         print("Chat away!")
 
         self.console_lock = threading.Lock()
-        self.recipient = ""        # Direct message recipient
-        self.group_name = ""       # Group message name
-        self.group_members = []    # Names of members of the group
-        self.private_key = b""      # Private key for the client
-        self.public_keys = {}      # Public keys for other clients TODO: Remove
+        self.private_key = b""     # Private key for the client
         self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
         self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
-        self.username = ""  # Username of this client
+        self.username = ""         # Username of this client
         self.loggedin = False
         self.ca_public_key = ""
         self.password_aes = b""
         self.password_hmac = b""
-        self.shortened_message = False # After the first sent message, will change the instruction to a shorter message ("Message: ")
         self.received_timestamps = {}
+        self.PUBLIC_CA_FILE = 'public_ca.pem'
 
-        # Get CA public key TODO: Make this a hardcoded static var
-        f = open('public_ca.pem', 'rb')
+        # Get CA public key
+        f = open(self.PUBLIC_CA_FILE, 'rb')
         self.ca_public_key = f.read()
         f.close()
-
-        Database.initialize_username_database()  # initializes the database w/username, public key, signatures
+        
+        # Initializes the database w/username, public key, signatures
+        Database.initialize_username_database() 
         Database.initialize_saved_accounts_database()
         Database.initialize_groups_database()
 
@@ -63,7 +61,7 @@ class Client:
             self.create_account()
 
     def check_email_valid(self,email):
-        regex = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
+        regex = r'^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
         if(re.search(regex,email)):
             return True
         else:
@@ -83,24 +81,22 @@ class Client:
         while not valid_email:
             email = self.username
             print(email)
-            # if not self.check_email_valid(email):
-            #     print("Email entered not valid")
-            #     self.create_account()
-            # else:
-            request = Requests.send_email(email)
-            self.ca.send(request)
-            code = input("Please enter the verification code sent to your email address: ")
-            request2 = Requests.verify_email(code)
-            self.ca.send(request2)
-
-            data = self.ca.recv(4096)
-            request = Requests.parse_request(data)
-
-            if request.is_ca_response_email_valid():
-                print("Authentication was successful")
-                valid_email = True
-            elif request.is_ca_response_email_invalid():
-                print("Code was not valid. Please try again.")
+            if not self.check_email_valid(email):
+                print("Email entered not valid")
+                self.create_account()
+            else:
+                request = Requests.send_email(email)
+                self.ca.send(request)
+                code = input("Please enter the verification code sent to your email address: ")
+                request2 = Requests.verify_email(code)
+                self.ca.send(request2)
+                data = self.ca.recv(4096)
+                request = Requests.parse_request(data)
+                if request.is_ca_response_email_valid():
+                    print("Authentication was successful")
+                    valid_email = True
+                elif request.is_ca_response_email_invalid():
+                    print("Code was not valid. Please try again.")
             
         strong_password = False
         while not strong_password:
@@ -189,6 +185,10 @@ class Client:
         self.login()
 
     def login(self):
+        """
+        Login to the user account.
+        This involves setting all contact information by pulling and decrypting information from the database
+        """
         self.username = input("Please enter email: ")
         password = input("Please enter your password: ")
         self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
@@ -200,7 +200,7 @@ class Client:
         # Receive contact information that is stored in the database
         contacts = Database.get_user_contact_info(self.username)
         for contact in contacts:
-            # print(contact)
+
             # Ensure necesary information is there
             keys = ("contact", "contact_aes", "hmac_key", "signature", "iv_aes", "iv_hmac")
             invalid = False
@@ -331,6 +331,9 @@ class Client:
 
 
     def logout(self):
+        """
+        Logs out and allows for reloggin
+        """
         request = Requests.logout(self.username)
         self.s.send(request)
         self.loggedin = False
@@ -380,6 +383,9 @@ class Client:
             print("Couldn't connect to server, please type in valid host name and port.")
 
     def handle_send(self):
+        """
+        Handles all of the sending options and sends correctly formatted messages
+        """
 
         while True:
             # Wait for the user to press ENTER
@@ -402,8 +408,6 @@ class Client:
                         print("Specified user does not exist. Please try again.")
                         continue
 
-                    # TODO: Check whether the user is online, only send the handshake if they are
-
                     # Check whether we have to send handshake
                     if not "aes_key" in self.contacts[username]:
                         self.send_direct_handshake(username)
@@ -414,9 +418,8 @@ class Client:
                 # Example: :newGroup testGroup alice,bob,john
                 elif command.is_new_group():
                     group_name = command.parts[1]
-                    # TODO Validate all usernames in this split?
                     group_members = command.parts[2].split(",")
-                    if Database.check_group(self.group_name) or self.is_group_in_groups(group_name):
+                    if Database.check_group(group_name) or self.is_group_in_groups(group_name):
                         print("Group name already exists. Please enter a different name and try again.")             
                     else:
                         self.send_group_handshake(group_name, group_members)
@@ -452,11 +455,6 @@ class Client:
                         print("Group " + group_name + " members: ")
                         for member in self.groups[group_name]["members"]:
                             print(member)
-                # Closes the chat client.
-                # :exit
-                elif command.is_exit():
-                    # Linux-only
-                    os.kill(os.getpid(), signal.SIGINT)
                 # Lists user's contacts.
                 # :contacts
                 elif command.is_list_contacts():
@@ -469,9 +467,6 @@ class Client:
                     print("Your groups:")
                     for group in self.groups:
                         print(group)
-                elif command.is_block():
-                    # TODO: Implement this
-                    print("Not implemented.")
                 elif command.is_help():
                     help_instructions = """
 Available commands
@@ -521,8 +516,12 @@ Example: :info group testGroup                    """
 
 
     def send_direct_handshake(self, recipient):
+        """
+        Sends a handshake to the recipient to establish secure channels.
+        Also updates the contact information
+        """
+        
         # Send handshake
-        # keys = {"aes": ..., "hmac": ...}
         keys = Send.send_direct_handshake(self.username, recipient, self.s, self.private_key, self.contacts[recipient]["public_key"])
 
         # Update recipient's keys
@@ -561,6 +560,9 @@ Example: :info group testGroup                    """
         )
 
     def send_group_handshake(self, group_name, group_members):
+        """
+        Same as send_handshake() but handles sending to mulitple members and providing the correct information
+        """
         # Initialize the group dict
         self.groups[group_name] = {}
         self.groups[group_name]["members"] = group_members
@@ -574,11 +576,10 @@ Example: :info group testGroup                    """
                 self.populate_public_keys(recipient)
 
             keys = Send.send_group_handshake(self.username, recipient, group_members, self.s, self.private_key, self.contacts[recipient]["public_key"], key, group_name)
-            # TODO: Probably don't need to reassign as it should be the same
             self.groups[group_name]["aes_key"] = keys["aes"]
             self.groups[group_name]["hmac_key"] = keys["hmac"]
 
-        ### --- Update the database --- ### TODO: Probably should migrate this to above loop
+        ### --- Update the database --- ### 
 
         email = self.username
         group_aes = base64.b64encode(self.groups[group_name]["aes_key"])
@@ -612,6 +613,9 @@ Example: :info group testGroup                    """
             )
 
     def handle_receive(self):
+        """
+        Handles all of the different receiving requests from server
+        """
         while True:
             data = self.s.recv(4096)
             request = Requests.parse_request(data)
@@ -720,6 +724,9 @@ Example: :info group testGroup                    """
                     )
 
     def populate_public_keys(self, username: str):
+        """
+        Access the database and get a contacts public key
+        """
 
         # Get the public key from the data base
         info = Database.get_user_info(username)
@@ -752,11 +759,19 @@ Example: :info group testGroup                    """
         self.contacts[username]["public_key"] = public_key
 
     def populate_private_key_from_file(self):
+        """
+        Sets the users private key from a file.
+        This is only used when the user first creates their account
+        """
         f = open('private_{}.pem'.format(self.username), 'rb')
         self.private_key = f.read()
         f.close()
 
     def populate_private_key(self):
+        """
+        Populate the public key from the database.
+        This is used when a user logs in
+        """
         info = Database.get_user_account(self.username)
         if "private_key" not in info:
             self.private_key = b""

@@ -1,6 +1,3 @@
-"""
-Certificate Authority. Needs to create signitures over public keys and usernames to ensure the public key is the correct one.
-"""
 import socket
 import sys
 import Requests
@@ -15,11 +12,14 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 
-CA_EMAIL = 'accord.no.reply.register@gmail.com'
-CA_PASS = 'acccord123@'
-
 class CertAuth:
+    '''
+    Arguments: port number
+    Must run this before starting Client
+    '''
     def __init__(self):
+        self.CA_EMAIL = 'accord.no.reply.register@gmail.com'
+        self.CA_PASS = 'acccord123@'
         f = Figlet(font="smslant")
         print(f.renderText("Certificate Authority"))
 
@@ -125,14 +125,14 @@ class CertAuth:
             self.server = smtplib.SMTP('smtp.gmail.com', 587)
             self.server.ehlo()
             self.server.starttls()
-            self.server.login(CA_EMAIL,CA_PASS)
-        except Exception as e:
+            self.server.login(self.CA_EMAIL, self.CA_PASS)
+        except Exception as _:
             print("Unable to login to system email.")
             return False 
     
         self.code = self.get_verification_code() 
         msg = MIMEMultipart()
-        msg['From'] = CA_EMAIL
+        msg['From'] = self.CA_EMAIL
         msg['To'] = email
         msg['Subject'] = 'Accord Webchat Verification Code'
 
@@ -140,7 +140,7 @@ class CertAuth:
         msg.attach(MIMEText(body,'plain'))
         text = msg.as_string()
     
-        self.server.sendmail(CA_EMAIL,email,text)
+        self.server.sendmail(self.CA_EMAIL,email,text)
         self.server.quit()
     
     def get_verification_code(self):
