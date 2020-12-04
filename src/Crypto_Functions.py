@@ -87,11 +87,9 @@ def rsa_check_sign(msg: bytes, signature: bytes, public_key: bytes) -> bool:
 
     try:
         pkcs1_15.new(key).verify(h, signature)
-        print("valid")
         valid = True
     except (ValueError, TypeError):
         valid = False
-        print("not valid")
 
     return valid
 
@@ -142,7 +140,7 @@ def check_hmac(msg: bytes, mac: bytes, hmac_key: bytes) -> bool:
         h.hexverify(mac)
         valid = True
     except ValueError:
-        print("The message or the key is wrong")
+        return valid
 
     return valid
 
@@ -160,6 +158,6 @@ def check_hmac_b64(msg: bytes, mac: bytes, hmac_key: bytes) -> bool:
         h.verify(mac)
         valid = True
     except ValueError:
-        print("The message or the key is wrong")
+        return valid
 
     return valid
