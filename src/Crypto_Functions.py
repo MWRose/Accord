@@ -24,7 +24,7 @@ def aes_encrypt(msg_str: str, aes_key: bytes) -> Tuple[bytes, bytes]:
     cipher = AES.new(aes_key, AES.MODE_CBC)
     enc_msg = cipher.encrypt(pad(msg, AES.block_size))
     iv = cipher.iv
-    
+
     return enc_msg, iv
 
 
@@ -35,7 +35,7 @@ def aes_decrypt(enc_msg: bytes, iv: bytes, aes_key: bytes) -> str:
 
     cipher = AES.new(aes_key, AES.MODE_CBC, iv)
     msg = unpad(cipher.decrypt(enc_msg), AES.block_size)
-    
+
     return msg.decode()
 
 
@@ -43,7 +43,7 @@ def rsa_encrypt(msg_str: str, public_key: bytes) -> bytes:
     """
     Takes msg and encrypts it under public_key
     """
-    
+
     msg = msg_str.encode()
     key = RSA.import_key(public_key)
     cipher_rsa = PKCS1_OAEP.new(key)
@@ -107,7 +107,8 @@ def hash_keys(key: bytes) -> Tuple[bytes, bytes]:
     key2 = keys[32:]
 
     return key1, key2
-    
+
+
 def hmac(msg: bytes, hmac_key: bytes) -> bytes:
     """
     Takes a hmac_key and creates a b64 tag for the msg
@@ -117,6 +118,7 @@ def hmac(msg: bytes, hmac_key: bytes) -> bytes:
     h.update(msg)
     return h.hexdigest()
 
+
 def hmac_b64(msg: bytes, hmac_key: bytes) -> bytes:
     """
     Takes a hmac_key and creates a b64 tag for the msg
@@ -125,7 +127,6 @@ def hmac_b64(msg: bytes, hmac_key: bytes) -> bytes:
     h = HMAC.new(hmac_key, digestmod=SHA256)
     h.update(msg)
     return base64.b64encode(h.digest())
-    
 
 
 def check_hmac(msg: bytes, mac: bytes, hmac_key: bytes) -> bool:
@@ -151,7 +152,7 @@ def check_hmac_b64(msg: bytes, mac: bytes, hmac_key: bytes) -> bool:
     Takes a hmac_key and a mac and checks the msg tag
     :mac: A hexadecimal encoded tag
     """
-    
+
     valid = False
     h = HMAC.new(hmac_key, digestmod=SHA256)
     h.update(msg)

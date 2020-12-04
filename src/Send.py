@@ -1,9 +1,10 @@
 import Crypto_Functions
-import base64    
+import base64
 import Requests
 import socket
 import sys
 import datetime
+
 
 def send_direct_handshake(sender, recipient, s, sender_private_key, recipient_public_key):
     """"
@@ -26,11 +27,12 @@ def send_direct_handshake(sender, recipient, s, sender_private_key, recipient_pu
 
     # Transform key into two keys
     aes_key, hmac_key = Crypto_Functions.hash_keys(key)
-    
+
     request = Requests.initiate_direct_message(sender, recipient, str(encrypted_b64), str(signed_b64))
     s.send(request)
-    
+
     return {"aes": aes_key, "hmac": hmac_key}
+
 
 def send_group_handshake(sender, recipient, members, s, sender_private_key, recipient_public_key, key, group_name):
     """
@@ -52,10 +54,12 @@ def send_group_handshake(sender, recipient, members, s, sender_private_key, reci
     # Transform key into two keys
     aes_key, hmac_key = Crypto_Functions.hash_keys(key)
 
-    request = Requests.initiate_group_chat(sender, recipient, ",".join(members), str(encrypted_b64), str(signed_b64), group_name)
+    request = Requests.initiate_group_chat(sender, recipient, ",".join(members), str(encrypted_b64), str(signed_b64),
+                                           group_name)
     s.send(request)
 
     return {"aes": aes_key, "hmac": hmac_key}
+
 
 def send_group_message(message, sender, group_name, s, group_members, groups):
     """
@@ -68,7 +72,7 @@ def send_group_message(message, sender, group_name, s, group_members, groups):
 
     # Encrypt
     enc_msg, iv = Crypto_Functions.aes_encrypt(message, aes_key)
-    
+
     # Create message tag on encypted data
     timestamp = str(datetime.datetime.now().timestamp())
     tag_contents = str(base64.b64encode(enc_msg)) + timestamp
@@ -78,7 +82,9 @@ def send_group_message(message, sender, group_name, s, group_members, groups):
     enc_msg_b64 = base64.b64encode(enc_msg)
     iv_b64 = base64.b64encode(iv)
 
-    s.send(Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), timestamp, str(tag)))
+    s.send(Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), timestamp,
+                                  str(tag)))
+
 
 def send_direct(sender, recipient, contacts, message, s):
     """

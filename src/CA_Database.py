@@ -4,6 +4,7 @@ import datetime
 
 DATABASE_FILE = r"CA.db"
 
+
 def initialize_database():
     conn = None
     try:
@@ -18,6 +19,7 @@ def initialize_database():
         if conn:
             conn.close()
 
+
 def username_exists(username: str) -> bool:
     try:
         conn = sqlite3.connect(DATABASE_FILE)
@@ -28,7 +30,8 @@ def username_exists(username: str) -> bool:
     except Exception as _:
         return False
 
-def add_user(username:str, public_key:str, ca_signature:str) -> bool:
+
+def add_user(username: str, public_key: str, ca_signature: str) -> bool:
     try:
         conn = sqlite3.connect(DATABASE_FILE)
         cursor = conn.cursor()
@@ -37,7 +40,7 @@ def add_user(username:str, public_key:str, ca_signature:str) -> bool:
                     (username,public_key,ca_signature)
                     VALUES(?,?,?);
                     """
-        cursor.execute(sqlite_insert_with_param, (username, public_key,ca_signature,))
+        cursor.execute(sqlite_insert_with_param, (username, public_key, ca_signature,))
         conn.commit()
         conn.close()
     except Exception as _:

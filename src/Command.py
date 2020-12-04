@@ -1,5 +1,6 @@
 import shlex
 
+
 class Command:
     def __init__(self, command):
         self.command = command
@@ -36,7 +37,7 @@ class Command:
 
     def is_list_groups(self):
         return self.command == ":groups"
-    
+
     def is_group_info(self):
         if not self.command.startswith(":info"):
             return False

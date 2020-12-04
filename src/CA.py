@@ -12,11 +12,13 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 
+
 class CertAuth:
-    '''
+    """
     Arguments: port number
     Must run this before starting Client
-    '''
+    """
+
     def __init__(self):
         self.CA_EMAIL = 'accord.no.reply.register@gmail.com'
         self.CA_PASS = 'acccord123@'
@@ -24,22 +26,21 @@ class CertAuth:
         print(f.renderText("Certificate Authority"))
 
         # Load the private key for CA
-        f =  open('private_ca.pem', 'rb')
+        f = open('private_ca.pem', 'rb')
         self.private_key = f.read()
-        f.close()    
+        f.close()
 
         # Load the public key for CA
-        f =  open('public_ca.pem', 'rb')
+        f = open('public_ca.pem', 'rb')
         self.public_key = f.read()
         f.close()
 
         CA_Database.initialize_database()
 
         self.start_ca()
-        
 
-    def start_ca(self):   
-        
+    def start_ca(self):
+
         # Get command line arguments and check correctness
         args = sys.argv
         if len(args) != 2:
@@ -56,7 +57,7 @@ class CertAuth:
 
         print("Running on host: " + str(hostname))
         print("Running on port: " + str(ca_port))
-        
+
         while True:
             print("In while loop in CA")
             c, addr = self.s.accept()
@@ -67,9 +68,9 @@ class CertAuth:
             if len(request.data) == 0:
                 print("There was in issue with the received data. Received the following raw data: ", data)
             elif request.is_establish_connection():
-                threading.Thread(target=self.handle_client,args=(c,addr,)).start()
-                
-    def handle_client(self,c,addr):
+                threading.Thread(target=self.handle_client, args=(c, addr,)).start()
+
+    def handle_client(self, c, addr):
         while True:
             try:
                 data = c.recv(4096)
@@ -82,10 +83,10 @@ class CertAuth:
     def handle_receive(self, data, c):
         request = Requests.parse_request(data)
         if len(request.data) == 0:
-                print("There was in issue with the received data. Received the following raw data: ", data)
+            print("There was in issue with the received data. Received the following raw data: ", data)
         elif request.is_ca_request():
             username = request.data["username"]
-            print("New request. Username: " + str(username))  
+            print("New request. Username: " + str(username))
             if CA_Database.username_exists(username):
                 print("Username " + username + " exists in the CA database.")
                 ca_response = Requests.ca_response_invalid()
@@ -106,7 +107,7 @@ class CertAuth:
             username = request.data["username"]
             print("CA received email: " + username)
             self.send_email(username)
-    
+
         elif request.is_verify_email():
             code = request.data["code"]
             if (self.verify_code(code)):
@@ -119,7 +120,6 @@ class CertAuth:
     def verify_code(self, verification_code):
         return str(verification_code) == str(self.code)
 
-
     def send_email(self, email):
         try:
             self.server = smtplib.SMTP('smtp.gmail.com', 587)
@@ -128,23 +128,24 @@ class CertAuth:
             self.server.login(self.CA_EMAIL, self.CA_PASS)
         except Exception as _:
             print("Unable to login to system email.")
-            return False 
-    
-        self.code = self.get_verification_code() 
+            return False
+
+        self.code = self.get_verification_code()
         msg = MIMEMultipart()
         msg['From'] = self.CA_EMAIL
         msg['To'] = email
         msg['Subject'] = 'Accord Webchat Verification Code'
 
         body = 'A request for account creation in Accord was sent to this email. Verification Code: ' + str(self.code)
-        msg.attach(MIMEText(body,'plain'))
+        msg.attach(MIMEText(body, 'plain'))
         text = msg.as_string()
-    
-        self.server.sendmail(self.CA_EMAIL,email,text)
+
+        self.server.sendmail(self.CA_EMAIL, email, text)
         self.server.quit()
-    
+
     def get_verification_code(self):
         r = random.randint(100000, 999999)
         return r
+
 
 ca = CertAuth()

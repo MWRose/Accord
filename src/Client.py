@@ -16,11 +16,13 @@ from Command import Command
 import signal
 import re
 
+
 class Client:
-    '''
+    """
     Arguments: server port
     Can run this multiple times for multiple different users
-    '''
+    """
+
     def __init__(self):
         # Print Accord client side messages
         f = Figlet(font="smslant")
@@ -28,10 +30,10 @@ class Client:
         print("Chat away!")
 
         self.console_lock = threading.Lock()
-        self.private_key = b""     # Private key for the client
-        self.contacts = {}         # {user:  {"aes_key", "hmac_key", "public_key"}}
-        self.groups = {}           # {group_name: {"aes_key", "hmac_key", "members"}}
-        self.username = ""         # Username of this client
+        self.private_key = b""  # Private key for the client
+        self.contacts = {}  # {user:  {"aes_key", "hmac_key", "public_key"}}
+        self.groups = {}  # {group_name: {"aes_key", "hmac_key", "members"}}
+        self.username = ""  # Username of this client
         self.loggedin = False
         self.ca_public_key = ""
         self.password_aes = b""
@@ -43,9 +45,9 @@ class Client:
         f = open(self.PUBLIC_CA_FILE, 'rb')
         self.ca_public_key = f.read()
         f.close()
-        
+
         # Initializes the database w/username, public key, signatures
-        Database.initialize_username_database() 
+        Database.initialize_username_database()
         Database.initialize_saved_accounts_database()
         Database.initialize_groups_database()
 
@@ -60,23 +62,23 @@ class Client:
         else:
             self.create_account()
 
-    def check_email_valid(self,email):
+    def check_email_valid(self, email):
         regex = r'^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
-        if(re.search(regex,email)):
+        if (re.search(regex, email)):
             return True
         else:
-            return False 
+            return False
 
     def create_account(self):
         valid_username = False
         while not valid_username:
             self.username = input("Enter email: ")
-            if(Database.check_user(self.username)):
+            if (Database.check_user(self.username)):
                 print("Username already exists in the system.")
             else:
                 valid_username = True
 
-        #Here for email verification
+        # Here for email verification
         valid_email = False
         while not valid_email:
             email = self.username
@@ -97,26 +99,26 @@ class Client:
                     valid_email = True
                 elif request.is_ca_response_email_invalid():
                     print("Code was not valid. Please try again.")
-            
+
         strong_password = False
         while not strong_password:
             password = input("Create new password: ")
             passwordChecker = PasswordChecker(password)
-            if(passwordChecker.password_checker()):
+            if (passwordChecker.password_checker()):
                 strong_password = True
                 self.password_aes, self.password_hmac = Crypto_Functions.hash_keys(password.encode())
 
-                #Database.add_user_info(self.username, self.password)
+                # Database.add_user_info(self.username, self.password)
                 Gen.generate_key_pair(self.username)
 
                 # Get user's public key
                 f = open('public_{}.pem'.format(self.username), 'rb')
                 public_key = f.read()
                 f.close()
-                
+
                 # Get user's private key
                 self.populate_private_key_from_file()
-                
+
                 # Read the key from a file then put it in the data base encrypted
 
                 pub_key_b64 = str(base64.b64encode(public_key))
@@ -154,7 +156,7 @@ class Client:
                             str(aes_iv_b64),
                             str(hmac_b64)
                         )
-                        
+
                         self.s.send(request)
                         break
                     elif request.is_ca_response_invalid():
@@ -178,8 +180,9 @@ class Client:
                         print("Account was not created. Please try again.")
                         self.create_account()
             else:
-                print("The password you typed was not secure. Password must use letters and numbers and must be at least 8 characters.")
-        
+                print(
+                    "The password you typed was not secure. Password must use letters and numbers and must be at least 8 characters.")
+
         # When we get to this point, we know that the user's account has been created and we prompt the user to login
         # with their new credentials to proceed.
         self.login()
@@ -196,7 +199,7 @@ class Client:
             print("Account not verified. Please check username and password and try again.")
             self.authenticate()
             return
-        
+
         # Receive contact information that is stored in the database
         contacts = Database.get_user_contact_info(self.username)
         for contact in contacts:
@@ -208,10 +211,10 @@ class Client:
                 if key not in contact:
                     invalid = True
                     print("Not all fields in contact return")
-            
+
             if invalid:
                 continue
-            
+
             for key in keys:
                 if not contact[key]:  # Make sure each entry has a value
                     print("Not all fields in contact have value return")
@@ -233,9 +236,11 @@ class Client:
             iv_hmac = base64.b64decode(iv_hmac_b64)
 
             # Check signature
-            signature_contents = self.username + recipient + contact["contact_aes"] + contact["hmac_key"] + contact["iv_aes"] + contact["iv_hmac"]
+            signature_contents = self.username + recipient + contact["contact_aes"] + contact["hmac_key"] + contact[
+                "iv_aes"] + contact["iv_hmac"]
             if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
-                print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
+                print(
+                    "The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
                 self.login()
                 return
 
@@ -248,7 +253,6 @@ class Client:
                 self.contacts[recipient] = {"aes_key": aes_key, "hmac_key": hmac_key}
             except:
                 print("Incorrect Decryption")
-            
 
         # Reveive group information that is stored in the database
         groups = Database.get_username_groups(self.username)
@@ -261,10 +265,10 @@ class Client:
                 if key not in contact:
                     print("Not all fields in contact return 1")
                     invalid = True
-            
+
             if invalid:
                 continue
-            
+
             for key in keys:
                 if not contact[key]:  # Make sure each entry has a value
                     print("Not all fields in contact have value return 1")
@@ -289,10 +293,12 @@ class Client:
             # Check the signature
             # signature_contents = email + contact + enc_group_aes + enc_hmac_key + iv_aes + iv_hmac
             # signature = str(Crypto_Functions.hmac_b64(signature_contents.encode(), self.password_hmac))
-            signature_contents = self.username + recipient + contact["aes_key"] + contact["hmac_key"] + contact["aes_iv"] + contact["hmac_iv"]
+            signature_contents = self.username + recipient + contact["aes_key"] + contact["hmac_key"] + contact[
+                "aes_iv"] + contact["hmac_iv"]
             # print(signature_contents)
             if not Crypto_Functions.check_hmac_b64(signature_contents.encode(), signed, self.password_hmac):
-                print("The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
+                print(
+                    "The password you entered does not match the stored data. This could be caused by an incorrect password, or the data could be corrupted.")
                 self.login()
                 return
 
@@ -306,7 +312,7 @@ class Client:
                 # Make sure group has been added to group dict
                 if group_name not in self.groups:
                     self.groups[group_name] = {}
-                
+
                 # Group has already been added to groups dict
                 self.groups[group_name]["aes_key"] = aes_key
                 self.groups[group_name]["hmac_key"] = hmac_key
@@ -314,21 +320,21 @@ class Client:
                 # Member list already created and current recipient not in it
                 if "members" in self.groups[group_name] and recipient not in self.groups[group_name]:
                     self.groups[group_name]["members"].append(recipient)
-                
+
                 # If the user isn't in list add them to a new list
                 elif recipient not in self.groups[group_name]:
                     self.groups[group_name]["members"] = [recipient]
-                
+
 
             except:
                 print("Incorrect Decryption")
-        
+
         request = Requests.login(self.username)
         self.s.send(request)
         self.loggedin = True
         print("Welcome, " + self.username + "!")
-        print("You're currently in the listening mode. To issue a command, press ENTER. You can type :help to see all the available commands.")
-
+        print(
+            "You're currently in the listening mode. To issue a command, press ENTER. You can type :help to see all the available commands.")
 
     def logout(self):
         """
@@ -364,22 +370,22 @@ class Client:
         self.ca = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             # Get command line arguments and check correctness	
-            args = sys.argv	
-            if len(args) != 4:	
-                print("correct usage: python3 Server.py <hostname> <server_port> <ca_port>")	
-                sys.exit(0)	
+            args = sys.argv
+            if len(args) != 4:
+                print("correct usage: python3 Server.py <hostname> <server_port> <ca_port>")
+                sys.exit(0)
 
-            hostname = args[1]	
-            server_port = int(args[2])	
-            ca_port = int(args[3])	
+            hostname = args[1]
+            server_port = int(args[2])
+            ca_port = int(args[3])
 
-            self.s.connect((hostname, server_port))	
+            self.s.connect((hostname, server_port))
             self.ca.connect((hostname, ca_port))
 
             request = Requests.establish_connection()
             self.s.send(request)
             self.ca.send(request)
-        except:	
+        except:
             print("Couldn't connect to server, please type in valid host name and port.")
 
     def handle_send(self):
@@ -420,7 +426,7 @@ class Client:
                     group_name = command.parts[1]
                     group_members = command.parts[2].split(",")
                     if Database.check_group(group_name) or self.is_group_in_groups(group_name):
-                        print("Group name already exists. Please enter a different name and try again.")             
+                        print("Group name already exists. Please enter a different name and try again.")
                     else:
                         self.send_group_handshake(group_name, group_members)
                 # Sends a group message to the specified group.
@@ -432,7 +438,8 @@ class Client:
                     if not self.is_group_in_groups(group_name):
                         print("The group was not found.")
                     else:
-                        Send.send_group_message(message, self.username, group_name, self.s, self.groups[group_name]["members"], self.groups)
+                        Send.send_group_message(message, self.username, group_name, self.s,
+                                                self.groups[group_name]["members"], self.groups)
                 # Sends a direct message to the specified user.
                 # :direct name message
                 # Example: :direct alice "Hello, Alice"
@@ -442,8 +449,9 @@ class Client:
                     if self.is_username_in_contacts(recipient):
                         Send.send_direct(self.username, recipient, self.contacts, message, self.s)
                     else:
-                        print("User not found in your contacts. Please first add the user using :add command. Type :help for more details.")
-                
+                        print(
+                            "User not found in your contacts. Please first add the user using :add command. Type :help for more details.")
+
                 # Displays members associated with the specified group.
                 # :info group name
                 # Example: :info group testGroup
@@ -506,29 +514,26 @@ Example: :info group testGroup                    """
                 else:
                     print("Command not recognized. Type :help for more details.")
 
-
     def is_username_in_contacts(self, username):
         return username in self.contacts and "aes_key" in self.contacts[username]
 
-
     def is_group_in_groups(self, group_name):
         return group_name in self.groups and "aes_key" in self.groups[group_name]
-
 
     def send_direct_handshake(self, recipient):
         """
         Sends a handshake to the recipient to establish secure channels.
         Also updates the contact information
         """
-        
+
         # Send handshake
-        keys = Send.send_direct_handshake(self.username, recipient, self.s, self.private_key, self.contacts[recipient]["public_key"])
+        keys = Send.send_direct_handshake(self.username, recipient, self.s, self.private_key,
+                                          self.contacts[recipient]["public_key"])
 
         # Update recipient's keys
         self.contacts[recipient]["aes_key"] = keys["aes"]
         self.contacts[recipient]["hmac_key"] = keys["hmac"]
 
-        ### --- Update the Database --- ###
         email = self.username
         contact = recipient
 
@@ -575,11 +580,10 @@ Example: :info group testGroup                    """
             if recipient not in self.contacts.keys() or "public_key" not in self.contacts[recipient]:
                 self.populate_public_keys(recipient)
 
-            keys = Send.send_group_handshake(self.username, recipient, group_members, self.s, self.private_key, self.contacts[recipient]["public_key"], key, group_name)
+            keys = Send.send_group_handshake(self.username, recipient, group_members, self.s, self.private_key,
+                                             self.contacts[recipient]["public_key"], key, group_name)
             self.groups[group_name]["aes_key"] = keys["aes"]
             self.groups[group_name]["hmac_key"] = keys["hmac"]
-
-        ### --- Update the database --- ### 
 
         email = self.username
         group_aes = base64.b64encode(self.groups[group_name]["aes_key"])
@@ -635,11 +639,11 @@ Example: :info group testGroup                    """
                     requester = request.data["requester"]
                     # Make sure we have the contact
                     if requester not in self.contacts or "public_key" not in self.contacts[requester].keys():
-
                         self.populate_public_keys(requester)
 
                     # Recieve the handshake
-                    keys = Receive.receive_group_handshake(request.data, self.username, self.groups, self.contacts, self.private_key)
+                    keys = Receive.receive_group_handshake(request.data, self.username, self.groups, self.contacts,
+                                                           self.private_key)
                     group_name = keys["group_name"]
                     aes_key = keys["aes"]
                     hmac_key = keys["hmac"]
@@ -648,7 +652,6 @@ Example: :info group testGroup                    """
                     # This will completely overwrite or add a new one
                     self.groups[group_name] = {"aes_key": aes_key, "hmac_key": hmac_key, "members": members}
 
-                    ### --- Update the Database --- ###
                     email = self.username
 
                     # Get encrypted aes under self.password_aes
@@ -684,8 +687,9 @@ Example: :info group testGroup                    """
                     requester = request.data["requester"]
                     if requester not in self.contacts:
                         self.populate_public_keys(requester)
-                    
-                    keys = Receive.receive_direct_handshake(request.data, self.contacts, self.contacts[requester]["public_key"], self.private_key)
+
+                    keys = Receive.receive_direct_handshake(request.data, self.contacts,
+                                                            self.contacts[requester]["public_key"], self.private_key)
                     aes_key = keys["aes"]
                     hmac_key = keys["hmac"]
 
@@ -693,7 +697,6 @@ Example: :info group testGroup                    """
                     self.contacts[requester]["aes_key"] = aes_key
                     self.contacts[requester]["hmac_key"] = hmac_key
 
-                    ### --- Update the Database --- ###
                     email = self.username
                     contact = requester
 
@@ -736,7 +739,7 @@ Example: :info group testGroup                    """
         if info == {}:
             print("The user you requested was not found in the database. ")
             return
-        
+
         for key in keys:
             if not key in info or not info[key]:
                 print("A public key value is missing")
@@ -747,7 +750,6 @@ Example: :info group testGroup                    """
 
         public_key = base64.b64decode(public_key_b64)
         ca_signature = base64.b64decode(ca_signature_b64)
-
 
         # Check the CA's signature
         signature_contents = username + "," + public_key.decode()

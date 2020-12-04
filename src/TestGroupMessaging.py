@@ -1,10 +1,10 @@
 from unittest.mock import patch, Mock
 from unittest import mock, main, TestCase
-
 import Receive
 import Requests
 import Send
 import base64
+
 
 class TestGroupMessaging(TestCase):
     @patch('builtins.print')
@@ -28,9 +28,10 @@ class TestGroupMessaging(TestCase):
         enc_msg_b64 = base64.b64encode(enc_msg)
         iv_b64 = base64.b64encode(iv)
 
-        request = Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), tag)
+        request = Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64),
+                                         tag)
         parsed_request = Requests.parse_request(request)
-        
+
         # Actual test
         Receive.receive_group(parsed_request.data, groups)
         mock_print.assert_called_with(sender + " to " + group_name + ": " + message)
@@ -55,9 +56,10 @@ class TestGroupMessaging(TestCase):
         enc_msg_b64 = base64.b64encode(enc_msg)
         iv_b64 = base64.b64encode(iv)
 
-        request = Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), tag)
+        request = Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64),
+                                         tag)
         parsed_request = Requests.parse_request(request)
-        
+
         # Actual test
         with self.assertRaises(Exception) as context:
             Receive.receive_group(parsed_request.data, groups)
@@ -82,9 +84,10 @@ class TestGroupMessaging(TestCase):
         enc_msg_b64 = base64.b64encode(enc_msg)
         iv_b64 = base64.b64encode(iv)
 
-        request = Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), tag)
+        request = Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64),
+                                         tag)
         parsed_request = Requests.parse_request(request)
-        
+
         # Actual test
         with self.assertRaises(Exception) as context:
             Receive.receive_group(parsed_request.data, groups)
@@ -109,9 +112,10 @@ class TestGroupMessaging(TestCase):
         enc_msg_b64 = base64.b64encode(enc_msg)
         iv_b64 = base64.b64encode(iv)
 
-        request = Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), tag)
+        request = Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64),
+                                         tag)
         parsed_request = Requests.parse_request(request)
-        
+
         # Actual test
         with self.assertRaises(Exception) as context:
             Receive.receive_group(parsed_request.data, groups)
@@ -142,10 +146,12 @@ class TestGroupMessaging(TestCase):
         # Expected
         enc_msg_b64 = base64.b64encode(enc_msg)
         iv_b64 = base64.b64encode(iv)
-        request = Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64), tag)
-        
+        request = Requests.group_message(sender, ",".join(group_members), group_name, str(enc_msg_b64), str(iv_b64),
+                                         tag)
+
         # Actual test
         Send.send_group_message(message, sender, group_name, mock_socket, group_members, groups)
         mock_socket.send.assert_called_with(request)
+
 
 main()

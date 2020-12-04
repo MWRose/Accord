@@ -5,27 +5,31 @@ from pyfiglet import Figlet
 import Requests
 import Database
 
+
 class Server:
-    '''
+    """
     Arguments: port number
     Must run this before starting Client
-    '''
+    """
+
     def __init__(self):
         # Print Accord server side messages
         f = Figlet(font="smslant")
-        print (f.renderText("Welcome to ACCORD"))
+        print(f.renderText("Welcome to ACCORD"))
         print("Server side")
-        self.client_index = -1
 
+        # Initalize clients dictionary
+        self.clients = dict()
+
+        # Initalize the socket
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # Initialize the databases
+        self.is_database_logs_init = False
+        self.is_database_user_init = False
         self.start_server()
 
-
     def start_server(self):
-        # Initialize the databases
-        self.is_database_user_init = False
-        self.is_database_logs_init = False
-
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_name = socket.gethostbyname(socket.gethostname())
 
         # Get command line arguments and check correctness
@@ -33,8 +37,6 @@ class Server:
         if len(args) != 2:
             print("correct usage: python3 Server.py <port>")
         server_port = int(args[1])
-
-        self.clients = dict()
 
         self.s.bind((server_name, server_port))
         self.s.listen(100)
@@ -51,30 +53,27 @@ class Server:
             if len(request.data) == 0:
                 print("There was in issue with the received data. Received the following raw data: ", data)
             elif request.is_establish_connection():
-                threading.Thread(target=self.handle_client,args=(c,addr,)).start()
-
+                threading.Thread(target=self.handle_client, args=(c, addr,)).start()
 
     def broadcast(self, msg):
         for connection in self.clients.values():
             connection.send(Requests.broadcast(msg))
 
-
     def create_new_account(self, c, data):
-        username = data["username"]	
-        public_key = data["public_key"]	
-        ca_signature = data["signature"]	
+        username = data["username"]
+        public_key = data["public_key"]
+        ca_signature = data["signature"]
 
-        if (not Database.check_user(username)):	
-            Database.add_user_info(username, public_key, ca_signature)	
-            request = Requests.account_created()	
+        if not Database.check_user(username):
+            Database.add_user_info(username, public_key, ca_signature)
+            request = Requests.account_created()
             c.send(request)
-        else:	
-            request = Requests.account_not_created()	
-            c.send(request)	
+        else:
+            request = Requests.account_not_created()
+            c.send(request)
             print("Could not create an account. The provided username is taken.")
 
-
-    def handle_client(self,c,addr):
+    def handle_client(self, c, addr):
         while True:
             try:
                 data = c.recv(4096)
@@ -83,7 +82,6 @@ class Server:
                 break
 
             self.handle_recipient(data, c)
-
 
     def handle_recipient(self, data, c):
         request = Requests.parse_request(data)
@@ -95,7 +93,7 @@ class Server:
         if request.is_login():
             username = request.data["username"]
             print("New connection. Username: " + str(username))
-            self.broadcast(username + " has entered the chat.")                
+            self.broadcast(username + " has entered the chat.")
             self.clients[username] = c
         if request.is_logout():
             username = request.data["username"]
@@ -117,7 +115,7 @@ class Server:
         # Existing direct message
         elif request.is_direct_message():
             recipient = request.data["recipient"]
-            if recipient in self.clients: 
+            if recipient in self.clients:
                 self.clients[recipient].send(data)
         # Existing group message
         elif request.is_group_message():
@@ -127,6 +125,6 @@ class Server:
                 if member in self.clients:
                     if member != sender:
                         self.clients[member].send(data)
-    
+
 
 server = Server()
