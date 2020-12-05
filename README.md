@@ -8,7 +8,7 @@ Cryptography features implemented using Pycryptodome: https://pycryptodome.readt
 
 ### Dependencies
 - pycryptodome
-- requests
+- pyfiglet
 
 ### Scripts
 - Direct Messaging: run script scripts/run.sh with the command  
