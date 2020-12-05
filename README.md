@@ -1,5 +1,6 @@
 # Accord
-## Secure and anonomous communication between multiple people over a network
+
+### Secure and anonymous communication between multiple people over a network
 
 
 Cryptography features implemented using Pycryptodome: https://pycryptodome.readthedocs.io/en/latest/src/signature/signature.html
