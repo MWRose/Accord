@@ -42,17 +42,17 @@ class TestDatabase(unittest.TestCase):
 
         # check if correctly populated
         ls = Database.get_user_accounts()
-        self.assertEqual(ls, [{"user": "user1@email.com", "private_key": "PRIVKEY1", "aes_iv": "IV1", "hmac": "TAG1"},
-                              {"user": "user2@email.com", "private_key": "PRIVKEY2", "aes_iv": "IV2", "hmac": "TAG2"}])
+        self.assertEqual(ls, [{"user": "user1@email.com", "private_key": "PRIVKEY1", "aes_iv": "IV1", "tag": "TAG1"},
+                              {"user": "user2@email.com", "private_key": "PRIVKEY2", "aes_iv": "IV2", "tag": "TAG2"}])
 
         # overwrite
         self.assertTrue(Database.add_user_account("user1@email.com", "NEWPRIVKEY1", "IV1", "TAG1"))
 
         # test overwrite
         ls = Database.get_user_accounts()
-        self.assertEqual(ls, [{"user": "user2@email.com", "private_key": "PRIVKEY2", "aes_iv": "IV2", "hmac": "TAG2"},
+        self.assertEqual(ls, [{"user": "user2@email.com", "private_key": "PRIVKEY2", "aes_iv": "IV2", "tag": "TAG2"},
                               {"user": "user1@email.com", "private_key": "NEWPRIVKEY1", "aes_iv": "IV1",
-                               "hmac": "TAG1"}])
+                               "tag": "TAG1"}])
 
         # populate contacts for user1
         self.assertTrue(Database.add_contact_info(
@@ -83,31 +83,24 @@ class TestDatabase(unittest.TestCase):
 
         # populate group_one
         self.assertTrue(
-            Database.add_group("group_one", "a", "sign1", "aes_key_one", "aes_iv1", "hmac_key1", "hmac_iv1"))
+            Database.add_group("a", "testGroup", "a", "signature_testGroup", "aes_key_testGroup", "aes_iv_testGroup", "hmac_key_testGroup", "hmac_iv_testGroup"))
         self.assertTrue(
-            Database.add_group("group_one", "b", "sign1", "aes_key_one", "aes_iv1", "hmac_key1", "hmac_iv1"))
+            Database.add_group("a", "testGroup", "b", "signature_testGroup", "aes_key_testGroup", "aes_iv_testGroup", "hmac_key_testGroup", "hmac_iv_testGroup"))
         self.assertTrue(
-            Database.add_group("group_one", "c", "sign1", "aes_key_one", "aes_iv1", "hmac_key1", "hmac_iv1"))
+            Database.add_group("a", "testGroup", "c", "signature_testGroup", "aes_key_testGroup", "aes_iv_testGroup", "hmac_key_testGroup", "hmac_iv_testGroup"))
 
         # populate group_two
         self.assertTrue(
-            Database.add_group("group_two", "b", "sign2", "aes_key_two", "aes_iv2", "hmac_key2", "hmac_iv2"))
+            Database.add_group("d", "testGroup2", "d", "signature_testGroup2", "aes_key_testGroup2", "aes_iv_testGroup2", "hmac_key_testGroup2", "hmac_iv_testGroup2"))
         self.assertTrue(
-            Database.add_group("group_two", "d", "sign2", "aes_key_two", "aes_iv2", "hmac_key2", "hmac_iv2"))
+            Database.add_group("d", "testGroup2", "e", "signature_testGroup2", "aes_key_testGroup2", "aes_iv_testGroup2", "hmac_key_testGroup2", "hmac_iv_testGroup2"))
 
-        # check group_two participants
-        self.assertEqual(Database.get_group_participants("group_two"), [
-            {"group_name": "group_two", "participant": "b", "signature": "sign2", "aes_key": "aes_key_two",
-             "aes_iv": "aes_iv2", "hmac_key": "hmac_key2", "hmac_iv": "hmac_iv2"},
-            {"group_name": "group_two", "participant": "d", "signature": "sign2", "aes_key": "aes_key_two",
-             "aes_iv": "aes_iv2", "hmac_key": "hmac_key2", "hmac_iv": "hmac_iv2"}])
+        # check testGroup participants
+        self.assertEqual(Database.get_group_participants("a", "testGroup"), [{'group_name': 'testGroup', 'participant': 'a', 'signature': 'signature_testGroup', 'aes_key': 'aes_key_testGroup', 'aes_iv': 'aes_iv_testGroup', 'hmac_key': 'hmac_key_testGroup', 'hmac_iv': 'hmac_iv_testGroup'}, {'group_name': 'testGroup', 'participant': 'b', 'signature': 'signature_testGroup', 'aes_key': 'aes_key_testGroup', 'aes_iv': 'aes_iv_testGroup', 'hmac_key': 'hmac_key_testGroup', 'hmac_iv': 'hmac_iv_testGroup'}, {'group_name': 'testGroup', 'participant': 'c', 'signature': 'signature_testGroup', 'aes_key': 'aes_key_testGroup', 'aes_iv': 'aes_iv_testGroup', 'hmac_key': 'hmac_key_testGroup', 'hmac_iv': 'hmac_iv_testGroup'}])
 
-        # check user b's groups
-        self.assertEqual(Database.get_username_groups("b"), [
-            {"group_name": "group_one", "participant": "b", "signature": "sign1", "aes_key": "aes_key_one",
-             "aes_iv": "aes_iv1", "hmac_key": "hmac_key1", "hmac_iv": "hmac_iv1"},
-            {"group_name": "group_two", "participant": "b", "signature": "sign2", "aes_key": "aes_key_two",
-             "aes_iv": "aes_iv2", "hmac_key": "hmac_key2", "hmac_iv": "hmac_iv2"}])
+        # check testGroup2 participants
+        self.assertEqual(Database.get_group_participants("a", "testGroup"), [{'group_name': 'testGroup', 'participant': 'a', 'signature': 'signature_testGroup', 'aes_key': 'aes_key_testGroup', 'aes_iv': 'aes_iv_testGroup', 'hmac_key': 'hmac_key_testGroup', 'hmac_iv': 'hmac_iv_testGroup'}, {'group_name': 'testGroup', 'participant': 'b', 'signature': 'signature_testGroup', 'aes_key': 'aes_key_testGroup', 'aes_iv': 'aes_iv_testGroup', 'hmac_key': 'hmac_key_testGroup', 'hmac_iv': 'hmac_iv_testGroup'}, {'group_name': 'testGroup', 'participant': 'c', 'signature': 'signature_testGroup', 'aes_key': 'aes_key_testGroup', 'aes_iv': 'aes_iv_testGroup', 'hmac_key': 'hmac_key_testGroup', 'hmac_iv': 'hmac_iv_testGroup'}])
+
         os.remove("Accord_groups.db")
 
 
